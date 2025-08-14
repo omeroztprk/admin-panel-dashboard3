@@ -1,0 +1,134 @@
+{
+  "errors": {
+    "general": {
+      "internal_error": "Sunucu hatası oluştu",
+      "not_found": "Kaynak bulunamadı",
+      "unauthorized": "Yetkisiz erişim",
+      "forbidden": "Erişim reddedildi",
+      "rate_limit": "Çok fazla istek. Lütfen daha sonra tekrar deneyin",
+      "rate_limit_dynamic": "Çok fazla istek. Lütfen {{minute}} dk {{seconds}} sn sonra tekrar deneyin"
+    },
+    "validation": {
+      "invalid_input": "Geçersiz girdi",
+      "invalid_id": "Geçersiz kimlik (ID) formatı",
+      "invalid_object_id": "Geçersiz ObjectId formatı",
+      "email_required": "E-posta zorunludur",
+      "password_required": "Şifre zorunludur",
+      "first_name_length": "Ad 2 ile 50 karakter arasında olmalıdır",
+      "last_name_length": "Soyad 2 ile 50 karakter arasında olmalıdır",
+      "invalid_email": "Lütfen geçerli bir e-posta adresi girin",
+      "password_min_length": "Şifre en az 8 karakter olmalıdır",
+      "password_complexity": "Şifre en az bir büyük harf, bir küçük harf, bir rakam ve bir özel karakter içermelidir",
+      "passwords_same": "Yeni şifre mevcut şifreden farklı olmalıdır",
+      "role_name_length": "Rol adı 2 ile 50 karakter arasında olmalıdır",
+      "display_name_length": "Görünen ad 2 ile 100 karakter arasında olmalıdır",
+      "description_max": "Açıklama 500 karakteri geçmemelidir",
+      "permission_name_length": "İzin adı 2 ile 100 karakter arasında olmalıdır",
+      "current_password_required": "Mevcut şifre zorunludur",
+      "first_name_required": "Ad zorunludur",
+      "last_name_required": "Soyad zorunludur",
+      "email_max_length": "E-posta 100 karakteri geçmemelidir",
+      "role_name_required": "Rol adı zorunludur",
+      "display_name_required": "Görünen ad zorunludur",
+      "permission_name_required": "İzin adı zorunludur",
+      "resource_required": "Kaynak zorunludur",
+      "action_required": "Eylem zorunludur",
+      "category_required": "Kategori zorunludur",
+      "invalid_action": "Geçersiz eylem türü",
+      "invalid_resource": "Geçersiz kaynak türü",
+      "invalid_category": "Geçersiz kategori türü",
+      "invalid_password": "Geçersiz şifre",
+      "required_fields": "Zorunlu alanlar eksik",
+      "duplicate_value": "{{field}} için yinelenen değer"
+    },
+    "auth": {
+      "invalid_credentials": "Geçersiz e-posta veya şifre",
+      "invalid_token": "Geçersiz token",
+      "token_expired": "Token süresi doldu",
+      "token_missing": "Token eksik",
+      "refresh_token_missing": "Yenileme tokenı eksik",
+      "invalid_refresh_token": "Geçersiz yenileme tokenı",
+      "invalid_session": "Geçersiz oturum",
+      "account_locked": "Hesap kilitli",
+      "account_locked_dynamic": "Hesabınız kilitli. Lütfen {{minute}} dk {{seconds}} sn sonra tekrar deneyin",
+      "account_inactive": "Hesap pasif",
+      "email_exists": "Bu e-posta adresi zaten kayıtlı",
+      "user_not_found": "Kullanıcı bulunamadı",
+      "invalid_current_password": "Mevcut şifre hatalı",
+      "authentication_required": "Kimlik doğrulama gerekli",
+      "insufficient_permissions": "Yetersiz yetki",
+      "too_many_attempts_dynamic": "Çok fazla hatalı giriş denemesi. Lütfen {{minute}} dk {{seconds}} sn sonra tekrar deneyin",
+      "too_many_failed_dynamic": "IP adresinizden çok fazla giriş denemesi. Lütfen {{minute}} dk {{seconds}} sn sonra tekrar deneyin"
+    },
+    "user": {
+      "not_found": "Kullanıcı bulunamadı",
+      "email_exists": "E-posta adresi zaten kullanılıyor"
+    },
+    "role": {
+      "not_found": "Rol bulunamadı",
+      "name_exists": "Rol adı zaten mevcut",
+      "invalid_roles": "Geçersiz roller",
+      "system_role_delete": "Sistem rolleri silinemez",
+      "assigned_to_users": "Rol kullanıcılarla ilişkilendirilmiş, silinemez",
+      "system_role_modification": "Sistem rolleri değiştirilemez"
+    },
+    "permission": {
+      "not_found": "İzin bulunamadı",
+      "name_exists": "İzin adı zaten mevcut",
+      "invalid_permissions": "Geçersiz izinler",
+      "system_permission_delete": "Sistem izinleri silinemez",
+      "assigned_to_roles": "İzin rollerle ilişkilendirilmiş, silinemez",
+      "assigned_to_users": "İzin bir veya daha fazla kullanıcıya atanmış",
+      "system_permission_modification": "Sistem izni değiştirilemez"
+    },
+    "audit": {
+      "not_found": "Denetim kaydı bulunamadı"
+    }
+  },
+  "messages": {
+    "general": {
+      "success": "İşlem başarıyla tamamlandı",
+      "created": "Kaynak başarıyla oluşturuldu",
+      "updated": "Kaynak başarıyla güncellendi",
+      "deleted": "Kaynak başarıyla silindi",
+      "api_running": "API başarıyla çalışıyor",
+      "api_unhealthy": "API şu anda sorun yaşıyor",
+      "api_error": "Bir API hatası oluştu"
+    },
+    "auth": {
+      "login_success": "Giriş başarılı",
+      "logout_success": "Çıkış başarılı",
+      "logout_all_success": "Tüm oturumlardan başarıyla çıkış yapıldı",
+      "register_success": "Kayıt başarılı",
+      "token_refreshed": "Token başarıyla yenilendi",
+      "profile_updated": "Profil başarıyla güncellendi",
+      "password_changed": "Şifre başarıyla değiştirildi",
+      "session_revoked": "Oturum başarıyla sonlandırıldı"
+    },
+    "user": {
+      "created": "Kullanıcı başarıyla oluşturuldu",
+      "updated": "Kullanıcı başarıyla güncellendi",
+      "deleted": "Kullanıcı başarıyla silindi",
+      "status_updated": "Kullanıcı durumu başarıyla güncellendi",
+      "roles_assigned": "Roller başarıyla atandı",
+      "permissions_assigned": "İzinler başarıyla atandı",
+      "password_reset": "Şifre başarıyla sıfırlandı",
+      "unlocked": "Kullanıcı hesabının kilidi başarıyla açıldı",
+      "already_unlocked": "Kullanıcı hesabı zaten kilitli değildi"
+    },
+    "role": {
+      "created": "Rol başarıyla oluşturuldu",
+      "updated": "Rol başarıyla güncellendi",
+      "deleted": "Rol başarıyla silindi",
+      "status_updated": "Rol durumu başarıyla güncellendi",
+      "permissions_assigned": "İzinler başarıyla atandı",
+      "permissions_removed": "İzinler başarıyla kaldırıldı"
+    },
+    "permission": {
+      "created": "İzin başarıyla oluşturuldu",
+      "updated": "İzin başarıyla güncellendi",
+      "deleted": "İzin başarıyla silindi",
+      "status_updated": "İzin durumu başarıyla güncellendi"
+    }
+  }
+}

@@ -1,0 +1,134 @@
+{
+  "errors": {
+    "general": {
+      "internal_error": "Internal server error",
+      "not_found": "Resource not found",
+      "unauthorized": "Unauthorized access",
+      "forbidden": "Access denied",
+      "rate_limit": "Too many requests. Please try again later",
+      "rate_limit_dynamic": "Too many requests. Please try again in {{minute}}m {{seconds}}s"
+    },
+    "validation": {
+      "invalid_input": "Invalid input",
+      "invalid_id": "Invalid ID format",
+      "invalid_object_id": "Invalid ObjectId format",
+      "email_required": "Email is required",
+      "password_required": "Password is required",
+      "first_name_length": "First name must be between 2 and 50 characters",
+      "last_name_length": "Last name must be between 2 and 50 characters",
+      "invalid_email": "Please provide a valid email address",
+      "password_min_length": "Password must be at least 8 characters long",
+      "password_complexity": "Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character",
+      "passwords_same": "New password must be different from the current password",
+      "role_name_length": "Role name must be between 2 and 50 characters",
+      "display_name_length": "Display name must be between 2 and 100 characters",
+      "description_max": "Description must not exceed 500 characters",
+      "permission_name_length": "Permission name must be between 2 and 100 characters",
+      "current_password_required": "Current password is required",
+      "first_name_required": "First name is required",
+      "last_name_required": "Last name is required",
+      "email_max_length": "Email must not exceed 100 characters",
+      "role_name_required": "Role name is required",
+      "display_name_required": "Display name is required",
+      "permission_name_required": "Permission name is required",
+      "resource_required": "Resource is required",
+      "action_required": "Action is required",
+      "category_required": "Category is required",
+      "invalid_action": "Invalid action type",
+      "invalid_resource": "Invalid resource type",
+      "invalid_category": "Invalid category type",
+      "invalid_password": "Invalid password",
+      "required_fields": "Required fields are missing",
+      "duplicate_value": "Duplicate value for {{field}}"
+    },
+    "auth": {
+      "invalid_credentials": "Invalid email or password",
+      "invalid_token": "Invalid token",
+      "token_expired": "Token has expired",
+      "token_missing": "Token is missing",
+      "refresh_token_missing": "Refresh token is missing",
+      "invalid_refresh_token": "Invalid refresh token",
+      "invalid_session": "Invalid session",
+      "account_locked": "Account is locked",
+      "account_locked_dynamic": "Your account is locked. Please try again in {{minute}}m {{seconds}}s",
+      "account_inactive": "Account is inactive",
+      "email_exists": "This email address is already registered",
+      "user_not_found": "User not found",
+      "invalid_current_password": "Current password is incorrect",
+      "authentication_required": "Authentication is required",
+      "insufficient_permissions": "Insufficient permissions",
+      "too_many_attempts_dynamic": "Too many failed login attempts. Please try again in {{minute}}m {{seconds}}s",
+      "too_many_failed_dynamic": "Too many login attempts from your IP. Please try again in {{minute}}m {{seconds}}s"
+    },
+    "user": {
+      "not_found": "User not found",
+      "email_exists": "Email address is already in use"
+    },
+    "role": {
+      "not_found": "Role not found",
+      "name_exists": "Role name already exists",
+      "invalid_roles": "Invalid roles",
+      "system_role_delete": "System roles cannot be deleted",
+      "assigned_to_users": "Role is assigned to users and cannot be deleted",
+      "system_role_modification": "System roles cannot be modified"
+    },
+    "permission": {
+      "not_found": "Permission not found",
+      "name_exists": "Permission name already exists",
+      "invalid_permissions": "Invalid permissions",
+      "system_permission_delete": "System permissions cannot be deleted",
+      "assigned_to_roles": "Permission is assigned to roles and cannot be deleted",
+      "assigned_to_users": "Permission is assigned to one or more users",
+      "system_permission_modification": "System permission cannot be modified"
+    },
+    "audit": {
+      "not_found": "Audit log not found"
+    }
+  },
+  "messages": {
+    "general": {
+      "success": "Operation completed successfully",
+      "created": "Resource created successfully",
+      "updated": "Resource updated successfully",
+      "deleted": "Resource deleted successfully",
+      "api_running": "API is running normally",
+      "api_unhealthy": "The API is currently experiencing issues",
+      "api_error": "An API error occurred"
+    },
+    "auth": {
+      "login_success": "Login successful",
+      "logout_success": "Logout successful",
+      "logout_all_success": "Successfully logged out from all sessions",
+      "register_success": "Registration successful",
+      "token_refreshed": "Token refreshed successfully",
+      "profile_updated": "Profile updated successfully",
+      "password_changed": "Password changed successfully",
+      "session_revoked": "Session revoked successfully"
+    },
+    "user": {
+      "created": "User created successfully",
+      "updated": "User updated successfully",
+      "deleted": "User deleted successfully",
+      "status_updated": "User status updated successfully",
+      "roles_assigned": "Roles assigned successfully",
+      "permissions_assigned": "Permissions assigned successfully",
+      "password_reset": "Password reset successfully",
+      "unlocked": "User account unlocked successfully",
+      "already_unlocked": "User account was not locked"
+    },
+    "role": {
+      "created": "Role created successfully",
+      "updated": "Role updated successfully",
+      "deleted": "Role deleted successfully",
+      "status_updated": "Role status updated successfully",
+      "permissions_assigned": "Permissions assigned successfully",
+      "permissions_removed": "Permissions removed successfully"
+    },
+    "permission": {
+      "created": "Permission created successfully",
+      "updated": "Permission updated successfully",
+      "deleted": "Permission deleted successfully",
+      "status_updated": "Permission status updated successfully"
+    }
+  }
+}
