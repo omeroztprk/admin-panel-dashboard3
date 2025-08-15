@@ -58,6 +58,16 @@ const ERRORS = {
   AUDIT: {
     NOT_FOUND: 'errors.audit.not_found',
   },
+  CATEGORY: {
+    NOT_FOUND: 'errors.category.not_found',
+    NAME_EXISTS: 'errors.category.name_exists',
+    SLUG_EXISTS: 'errors.category.slug_exists',
+    INVALID_PARENT: 'errors.category.invalid_parent',
+    CIRCULAR_PARENT: 'errors.category.circular_parent',
+    HAS_CHILDREN: 'errors.category.has_children',
+    SYSTEM_CATEGORY_DELETE: 'errors.category.system_category_delete',
+    SYSTEM_CATEGORY_MODIFICATION: 'errors.category.system_category_modification',
+  },
 };
 
 const MESSAGES = {
@@ -105,6 +115,13 @@ const MESSAGES = {
     DELETED: 'messages.permission.deleted',
     STATUS_UPDATED: 'messages.permission.status_updated',
   },
+  CATEGORY: {
+    CREATED: 'messages.category.created',
+    UPDATED: 'messages.category.updated',
+    DELETED: 'messages.category.deleted',
+    STATUS_UPDATED: 'messages.category.status_updated',
+    MOVED: 'messages.category.moved',
+  },
 };
 
 const ROLES = {
@@ -137,6 +154,12 @@ const PERMISSIONS = {
   AUDIT_READ: 'audit:read',
   AUDIT_EXPORT: 'audit:export',
   SYSTEM_HEALTH: 'system:health',
+
+  CATEGORY_READ: 'category:read',
+  CATEGORY_CREATE: 'category:create',
+  CATEGORY_UPDATE: 'category:update',
+  CATEGORY_DELETE: 'category:delete',
+  CATEGORY_MANAGE: 'category:manage',
 };
 
 const PERMISSION_CATEGORIES = {
@@ -145,6 +168,7 @@ const PERMISSION_CATEGORIES = {
   PERMISSION_MANAGEMENT: 'Permission Management',
   AUDIT_MANAGEMENT: 'Audit Management',
   SYSTEM_MANAGEMENT: 'System Management',
+  CATEGORY_MANAGEMENT: 'Category Management',
 };
 
 const RESOURCES = {
@@ -153,6 +177,7 @@ const RESOURCES = {
   PERMISSION: 'permission',
   AUDIT: 'audit',
   SYSTEM: 'system',
+  CATEGORY: 'category',
 };
 
 const ACTIONS = {

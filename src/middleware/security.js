@@ -48,7 +48,9 @@ const sendRateLimited = (req, res, messageKey) => {
         url.includes('/users') ? 'user' :
           url.includes('/roles') ? 'role' :
             url.includes('/permissions') ? 'permission' :
-              url.includes('/audit') ? 'audit' : 'unknown';
+              url.includes('/audit') ? 'audit' :
+                url.includes('/categories') ? 'category' :
+                  'unknown';
 
     const action =
       url.includes('/auth/login') ? 'login_rate_limited' :

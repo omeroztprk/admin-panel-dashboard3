@@ -39,7 +39,11 @@
       "invalid_category": "Invalid category type",
       "invalid_password": "Invalid password",
       "required_fields": "Required fields are missing",
-      "duplicate_value": "Duplicate value for {{field}}"
+      "duplicate_value": "Duplicate value for {{field}}",
+      "category_name_length": "Category name must be between 2 and 100 characters",
+      "slug_required": "Slug is required",
+      "slug_format": "Slug can only contain lowercase letters, numbers, and hyphens",
+      "order_range": "Order must be between 0 and 10000"
     },
     "auth": {
       "invalid_credentials": "Invalid email or password",
@@ -83,6 +87,16 @@
     },
     "audit": {
       "not_found": "Audit log not found"
+    },
+    "category": {
+      "not_found": "Category not found",
+      "name_exists": "Category name already exists in the same parent category",
+      "slug_exists": "Slug already exists in the same parent category",
+      "invalid_parent": "Invalid parent category",
+      "circular_parent": "Parent category cannot be one of its subcategories",
+      "has_children": "Category with subcategories cannot be deleted",
+      "system_category_delete": "System categories cannot be deleted",
+      "system_category_modification": "System categories cannot be modified"
     }
   },
   "messages": {
@@ -129,6 +143,13 @@
       "updated": "Permission updated successfully",
       "deleted": "Permission deleted successfully",
       "status_updated": "Permission status updated successfully"
+    },
+    "category": {
+      "created": "Category created successfully",
+      "updated": "Category updated successfully",
+      "deleted": "Category deleted successfully",
+      "status_updated": "Category status updated successfully",
+      "moved": "Category moved successfully"
     }
   }
 }

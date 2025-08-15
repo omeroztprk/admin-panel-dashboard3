@@ -5,6 +5,7 @@ const authRoutes = require('./auth');
 const permissionRoutes = require('./permissions');
 const roleRoutes = require('./roles');
 const userRoutes = require('./users');
+const categoryRoutes = require('./categories');
 const response = require('../utils/response');
 const { MESSAGES } = require('../utils/constants');
 const logger = require('../utils/logger');
@@ -74,7 +75,8 @@ router.get('/info', (req, res) => {
         users: '/api/v1/users',
         roles: '/api/v1/roles',
         permissions: '/api/v1/permissions',
-        audit: '/api/v1/audit'
+        audit: '/api/v1/audit',
+        categories: '/api/v1/categories'
       }
     };
 
@@ -90,5 +92,6 @@ router.use('/users', userRoutes);
 router.use('/roles', roleRoutes);
 router.use('/permissions', permissionRoutes);
 router.use('/audit', auditRoutes);
+router.use('/categories', categoryRoutes);
 
 module.exports = router;

@@ -39,7 +39,11 @@
       "invalid_category": "Geçersiz kategori türü",
       "invalid_password": "Geçersiz şifre",
       "required_fields": "Zorunlu alanlar eksik",
-      "duplicate_value": "{{field}} için yinelenen değer"
+      "duplicate_value": "{{field}} için yinelenen değer",
+      "category_name_length": "Kategori adı 2 ile 100 karakter arasında olmalıdır",
+      "slug_required": "Slug zorunludur",
+      "slug_format": "Slug sadece küçük harf, rakam ve tire içerebilir",
+      "order_range": "Sıra 0 ile 10000 arasında olmalıdır"
     },
     "auth": {
       "invalid_credentials": "Geçersiz e-posta veya şifre",
@@ -83,6 +87,16 @@
     },
     "audit": {
       "not_found": "Denetim kaydı bulunamadı"
+    },
+    "category": {
+      "not_found": "Kategori bulunamadı",
+      "name_exists": "Aynı üst kategoride bu kategori adı zaten mevcut",
+      "slug_exists": "Aynı üst kategoride bu slug zaten mevcut",
+      "invalid_parent": "Geçersiz üst kategori",
+      "circular_parent": "Üst kategori, alt kategorilerden biri olamaz",
+      "has_children": "Alt kategorileri olan bir kategori silinemez",
+      "system_category_delete": "Sistem kategorileri silinemez",
+      "system_category_modification": "Sistem kategorileri değiştirilemez"
     }
   },
   "messages": {
@@ -129,6 +143,13 @@
       "updated": "İzin başarıyla güncellendi",
       "deleted": "İzin başarıyla silindi",
       "status_updated": "İzin durumu başarıyla güncellendi"
+    },
+    "category": {
+      "created": "Kategori oluşturuldu",
+      "updated": "Kategori güncellendi",
+      "deleted": "Kategori silindi",
+      "status_updated": "Kategori durumu güncellendi",
+      "moved": "Kategori taşındı"
     }
   }
 }

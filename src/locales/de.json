@@ -39,7 +39,11 @@
       "invalid_category": "Ungültiger Kategorietyp",
       "invalid_password": "Ungültiges Passwort",
       "required_fields": "Erforderliche Felder fehlen",
-      "duplicate_value": "Doppelter Wert für {{field}}"
+      "duplicate_value": "Doppelter Wert für {{field}}",
+      "category_name_length": "Kategorie muss zwischen 2 und 100 Zeichen lang sein",
+      "slug_required": "Slug ist erforderlich",
+      "slug_format": "Slug kann nur Kleinbuchstaben, Zahlen und Bindestriche enthalten",
+      "order_range": "Die Reihenfolge muss zwischen 0 und 10000 liegen"
     },
     "auth": {
       "invalid_credentials": "Ungültige E-Mail oder Passwort",
@@ -83,6 +87,16 @@
     },
     "audit": {
       "not_found": "Prüfprotokoll nicht gefunden"
+    },
+    "category": {
+      "not_found": "Kategorie nicht gefunden",
+      "name_exists": "Kategorie mit diesem Namen existiert bereits",
+      "slug_exists": "Slug existiert bereits in der gleichen übergeordneten Kategorie",
+      "invalid_parent": "Ungültige übergeordnete Kategorie",
+      "circular_parent": "Übergeordnete Kategorie kann nicht eine ihrer Unterkategorien sein",
+      "has_children": "Kategorie mit Unterkategorien kann nicht gelöscht werden",
+      "system_category_delete": "Systemkategorien können nicht gelöscht werden",
+      "system_category_modification": "Systemkategorien können nicht geändert werden"
     }
   },
   "messages": {
@@ -129,6 +143,13 @@
       "updated": "Berechtigung erfolgreich aktualisiert",
       "deleted": "Berechtigung erfolgreich gelöscht",
       "status_updated": "Berechtigungsstatus erfolgreich aktualisiert"
+    },
+    "category": {
+      "created": "Kategorie erfolgreich erstellt",
+      "updated": "Kategorie erfolgreich aktualisiert",
+      "deleted": "Kategorie erfolgreich gelöscht",
+      "status_updated": "Kategorie status erfolgreich aktualisiert",
+      "moved": "Kategorie erfolgreich verschoben"
     }
   }
 }
