@@ -34,12 +34,16 @@ const ERRORS = {
     AUTHENTICATION_REQUIRED: 'errors.auth.authentication_required',
     TOO_MANY_ATTEMPTS_DYNAMIC: 'errors.auth.too_many_attempts_dynamic',
     TOO_MANY_FAILED_DYNAMIC: 'errors.auth.too_many_failed_dynamic',
+    TFA_CODE_REQUIRED: 'errors.auth.tfa_code_required',
+    TFA_INVALID_CODE: 'errors.auth.tfa_invalid_code',
+    TFA_CODE_EXPIRED: 'errors.auth.tfa_code_expired',
+    TFA_MAX_ATTEMPTS: 'errors.auth.tfa_max_attempts',
+    TFA_EMAIL_FAILED: 'errors.auth.tfa_email_failed',
   },
   USER: {
     NOT_FOUND: 'errors.user.not_found',
     EMAIL_EXISTS: 'errors.user.email_exists',
     ALREADY_UNLOCKED: 'errors.user.already_unlocked',
-    CANNOT_DELETE_SELF: 'errors.user.cannot_delete_self',
   },
   ROLE: {
     NOT_FOUND: 'errors.role.not_found',
@@ -92,6 +96,8 @@ const MESSAGES = {
     PROFILE_UPDATED: 'messages.auth.profile_updated',
     PASSWORD_CHANGED: 'messages.auth.password_changed',
     SESSION_REVOKED: 'messages.auth.session_revoked',
+    TFA_CODE_SENT: 'messages.auth.tfa_code_sent',
+    TFA_VERIFIED: 'messages.auth.tfa_verified',
   },
   USER: {
     CREATED: 'messages.user.created',

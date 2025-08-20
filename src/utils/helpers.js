@@ -206,6 +206,20 @@ const createTokenHash = (token) => {
   return crypto.createHash('sha256').update(String(token)).digest('hex');
 };
 
+const maskEmail = (email) => {
+  if (!email || typeof email !== 'string') return email;
+  
+  const [local, domain] = email.split('@');
+  if (!local || !domain) return email;
+  
+  if (local.length <= 2) {
+    return `${local[0]}*@${domain}`;
+  }
+  
+  const masked = `${local[0]}${'*'.repeat(local.length - 2)}${local[local.length - 1]}`;
+  return `${masked}@${domain}`;
+};
+
 module.exports = {
   hashPassword,
   comparePassword,
@@ -219,5 +233,6 @@ module.exports = {
   isValidObjectId,
   escapeRegex,
   toBool,
-  createTokenHash
+  createTokenHash,
+  maskEmail
 };

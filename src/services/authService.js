@@ -5,6 +5,10 @@ const { resolveLanguage } = require('../config/i18n');
 const tokenService = require('./tokenService');
 const { ERRORS } = require('../utils/constants');
 const { normalizeEmail, hashPassword, sleep } = require('../utils/helpers');
+const { generateTfaCode, storeTfaCode, verifyTfaCode } = require('./tfaService');
+const { sendTfaCode } = require('./emailService');
+const { detectLanguage } = require('../config/i18n');
+const config = require('../config');
 
 const register = async (userData) => {
   const { firstName, lastName, email, password, profile, ipAddress, userAgent } = userData;
@@ -28,16 +32,6 @@ const register = async (userData) => {
 
   await user.save();
 
-  const accessToken = await generateAccessToken({ userId: user._id });
-  const refreshTokenValue = await generateRefreshToken({ userId: user._id });
-
-  await tokenService.saveRefreshToken({
-    token: refreshTokenValue,
-    userId: user._id,
-    userAgent,
-    ipAddress
-  });
-
   await user.populate([
     {
       path: 'roles',
@@ -52,11 +46,7 @@ const register = async (userData) => {
     }
   ]);
 
-  return {
-    user,
-    accessToken,
-    refreshToken: refreshTokenValue
-  };
+  return { user };
 };
 
 const login = async (credentials) => {
@@ -94,6 +84,44 @@ const login = async (credentials) => {
     await user.resetLoginAttempts();
   }
 
+  if (config.tfa.enabled) {
+    const tfaCode = generateTfaCode();
+    const stored = await storeTfaCode(normalizedEmail, tfaCode);
+    
+    if (!stored) {
+      throw new Error(ERRORS.AUTH.TFA_EMAIL_FAILED);
+    }
+
+    const language = user.profile?.language || 'en';
+    const emailSent = await sendTfaCode(normalizedEmail, tfaCode, language);
+    
+    if (!emailSent) {
+      throw new Error(ERRORS.AUTH.TFA_EMAIL_FAILED);
+    }
+
+    const error = new Error(ERRORS.AUTH.TFA_CODE_REQUIRED);
+    error.requiresTfa = true;
+    error.email = normalizedEmail;
+    throw error;
+  }
+
+  return await completeLogin(user, ipAddress, userAgent);
+};
+
+const verifyTfaAndLogin = async (email, tfaCode, ipAddress, userAgent) => {
+  const normalizedEmail = normalizeEmail(email);
+  
+  await verifyTfaCode(normalizedEmail, tfaCode);
+  
+  const user = await User.findOne({ email: normalizedEmail }).select('+password');
+  if (!user || !user.isActive || user.isLocked) {
+    throw new Error(ERRORS.AUTH.INVALID_CREDENTIALS);
+  }
+
+  return await completeLogin(user, ipAddress, userAgent);
+};
+
+const completeLogin = async (user, ipAddress, userAgent) => {
   user.lastLogin = new Date();
   await user.save();
 
@@ -252,6 +280,7 @@ const revokeSession = async (userId, tokenId) => {
 module.exports = {
   register,
   login,
+  verifyTfaAndLogin,
   logout,
   logoutAll,
   getMe,

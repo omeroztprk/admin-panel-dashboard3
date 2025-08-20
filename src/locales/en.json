@@ -63,7 +63,12 @@
       "authentication_required": "Authentication is required",
       "insufficient_permissions": "Insufficient permissions",
       "too_many_attempts_dynamic": "Too many failed login attempts. Please try again in {{minute}}m {{seconds}}s",
-      "too_many_failed_dynamic": "Too many login attempts from your IP. Please try again in {{minute}}m {{seconds}}s"
+      "too_many_failed_dynamic": "Too many login attempts from your IP. Please try again in {{minute}}m {{seconds}}s",
+      "tfa_code_required": "Two-factor authentication code required",
+      "tfa_invalid_code": "Invalid verification code",
+      "tfa_code_expired": "Verification code has expired",
+      "tfa_max_attempts": "Too many failed attempts. Request a new code",
+      "tfa_email_failed": "Failed to send verification code"
     },
     "user": {
       "not_found": "User not found",
@@ -114,11 +119,14 @@
       "login_success": "Login successful",
       "logout_success": "Logout successful",
       "logout_all_success": "Successfully logged out from all sessions",
-      "register_success": "Registration successful",
+      "register_success": "Registration completed. Please use your credentials to login",
+      "registration_completed": "Your account has been created successfully. You can now log in",
       "token_refreshed": "Token refreshed successfully",
       "profile_updated": "Profile updated successfully",
       "password_changed": "Password changed successfully",
-      "session_revoked": "Session revoked successfully"
+      "session_revoked": "Session revoked successfully",
+      "tfa_code_sent": "Verification code sent to your email",
+      "tfa_verified": "Two-factor authentication successful"
     },
     "user": {
       "created": "User created successfully",
@@ -151,6 +159,17 @@
       "deleted": "Category deleted successfully",
       "status_updated": "Category status updated successfully",
       "moved": "Category moved successfully"
+    }
+  },
+  "email": {
+    "from_name": "Admin Panel",
+    "tfa": {
+      "subject": "Login Verification Code",
+      "title": "Security Verification",
+      "message": "Use the following verification code to log in to your account:",
+      "warning_title": "Security Warning",
+      "warning_message": "This code will expire in 5 minutes. Do not share this code with anyone.",
+      "footer": "This email was sent automatically. Please do not reply."
     }
   }
 }

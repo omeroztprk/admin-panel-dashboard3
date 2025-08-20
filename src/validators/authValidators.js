@@ -43,6 +43,14 @@ const changePassword = [
     .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{8,128}$/).withMessage('errors.validation.password_complexity'),
 ];
 
+const verifyTfa = [
+  body('email').isEmail().normalizeEmail().withMessage('errors.validation.invalid_email'),
+  body('tfaCode')
+    .isLength({ min: 6, max: 6 })
+    .isNumeric()
+    .withMessage('errors.auth.tfa_invalid_code'),
+];
+
 module.exports = {
   register,
   login,
@@ -50,4 +58,5 @@ module.exports = {
   logout,
   updateProfile,
   changePassword,
+  verifyTfa,
 };

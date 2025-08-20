@@ -42,6 +42,23 @@ const config = {
     },
   },
 
+  email: {
+    enabled: process.env.TFA_ENABLED === 'true' && !!process.env.EMAIL_USER,
+    service: process.env.EMAIL_SERVICE || 'gmail',
+    host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+    port: parseNumber(process.env.EMAIL_PORT, 587),
+    secure: process.env.EMAIL_SECURE === 'true',
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+    from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
+  },
+
+  tfa: {
+    enabled: process.env.TFA_ENABLED === 'true',
+    codeExpiry: parseNumber(process.env.TFA_CODE_EXPIRY, 5 * 60 * 1000),
+    maxAttempts: parseNumber(process.env.TFA_MAX_ATTEMPTS, 3),
+  },
+
   security: {
     bcrypt: { saltRounds: parseNumber(process.env.BCRYPT_SALT_ROUNDS, 12) },
     rateLimit: {

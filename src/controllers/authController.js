@@ -3,7 +3,7 @@ const tokenService = require('../services/tokenService');
 const response = require('../utils/response');
 const { asyncHandler } = require('../middleware/errorHandler');
 const { MESSAGES } = require('../utils/constants');
-const { getClientIP, sanitizeObject } = require('../utils/helpers');
+const { getClientIP, sanitizeObject, maskEmail } = require('../utils/helpers');
 const { resolveLanguage } = require('../config/i18n');
 
 const register = asyncHandler(async (req, res) => {
@@ -20,8 +20,7 @@ const register = asyncHandler(async (req, res) => {
 
   return response.created(res, req.t(MESSAGES.AUTH.REGISTER_SUCCESS), {
     user: sanitizeObject(result.user),
-    accessToken: result.accessToken,
-    refreshToken: result.refreshToken
+    message: req.t('messages.auth.registration_completed')
   });
 });
 
@@ -33,12 +32,41 @@ const login = asyncHandler(async (req, res) => {
     userAgent: req.get('User-Agent') || 'Unknown'
   };
 
-  const result = await authService.login(credentials);
+  try {
+    const result = await authService.login(credentials);
+    
+    const lng = resolveLanguage(result.user?.profile?.language);
+    res.set('Content-Language', lng);
+
+    return response.success(res, req.t(MESSAGES.AUTH.LOGIN_SUCCESS), {
+      user: sanitizeObject(result.user),
+      accessToken: result.accessToken,
+      refreshToken: result.refreshToken
+    });
+  } catch (error) {
+    if (error.requiresTfa) {
+      return response.success(res, req.t(MESSAGES.AUTH.TFA_CODE_SENT), {
+        requiresTfa: true,
+        email: maskEmail(error.email),
+        expiresIn: 300,
+        maxAttempts: 3
+      }, 202);
+    }
+    throw error;
+  }
+});
+
+const verifyTfa = asyncHandler(async (req, res) => {
+  const { email, tfaCode } = req.body;
+  const ipAddress = getClientIP(req);
+  const userAgent = req.get('User-Agent') || 'Unknown';
+
+  const result = await authService.verifyTfaAndLogin(email, tfaCode, ipAddress, userAgent);
   
   const lng = resolveLanguage(result.user?.profile?.language);
   res.set('Content-Language', lng);
 
-  return response.success(res, req.t(MESSAGES.AUTH.LOGIN_SUCCESS), {
+  return response.success(res, req.t(MESSAGES.AUTH.TFA_VERIFIED), {
     user: sanitizeObject(result.user),
     accessToken: result.accessToken,
     refreshToken: result.refreshToken
@@ -99,6 +127,7 @@ const revokeSession = asyncHandler(async (req, res) => {
 module.exports = {
   register,
   login,
+  verifyTfa,
   refreshToken,
   logout,
   logoutAll,

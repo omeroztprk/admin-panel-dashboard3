@@ -26,6 +26,14 @@ router.post('/login',
   authController.login
 );
 
+router.post('/verify-tfa',
+  authValidators.verifyTfa,
+  validateRequest,
+  limiter('auth:login:ip'),
+  logUserAction(ACTIONS.LOGIN, RESOURCES.AUTH, SEVERITY.MEDIUM),
+  authController.verifyTfa
+);
+
 router.post('/refresh-token',
   authValidators.refreshToken,
   validateRequest,

@@ -63,7 +63,12 @@
       "authentication_required": "Kimlik doğrulama gerekli",
       "insufficient_permissions": "Yetersiz yetki",
       "too_many_attempts_dynamic": "Çok fazla hatalı giriş denemesi. Lütfen {{minute}} dk {{seconds}} sn sonra tekrar deneyin",
-      "too_many_failed_dynamic": "IP adresinizden çok fazla giriş denemesi. Lütfen {{minute}} dk {{seconds}} sn sonra tekrar deneyin"
+      "too_many_failed_dynamic": "IP adresinizden çok fazla giriş denemesi. Lütfen {{minute}} dk {{seconds}} sn sonra tekrar deneyin",
+      "tfa_code_required": "İki faktörlü doğrulama kodu gerekli",
+      "tfa_invalid_code": "Geçersiz doğrulama kodu",
+      "tfa_code_expired": "Doğrulama kodu süresi doldu",
+      "tfa_max_attempts": "Çok fazla hatalı deneme. Yeni kod talep edin",
+      "tfa_email_failed": "Doğrulama kodu gönderilemedi"
     },
     "user": {
       "not_found": "Kullanıcı bulunamadı",
@@ -114,11 +119,14 @@
       "login_success": "Giriş başarılı",
       "logout_success": "Çıkış başarılı",
       "logout_all_success": "Tüm oturumlardan başarıyla çıkış yapıldı",
-      "register_success": "Kayıt başarılı",
+      "register_success": "Kayıt işlemi tamamlandı. Giriş yapmak için lütfen bilgilerinizi kullanın",
+      "registration_completed": "Hesabınız başarıyla oluşturuldu. Şimdi giriş yapabilirsiniz",
       "token_refreshed": "Token başarıyla yenilendi",
       "profile_updated": "Profil başarıyla güncellendi",
       "password_changed": "Şifre başarıyla değiştirildi",
-      "session_revoked": "Oturum başarıyla sonlandırıldı"
+      "session_revoked": "Oturum başarıyla sonlandırıldı",
+      "tfa_code_sent": "Doğrulama kodu e-posta adresinize gönderildi",
+      "tfa_verified": "İki faktörlü doğrulama başarılı"
     },
     "user": {
       "created": "Kullanıcı başarıyla oluşturuldu",
@@ -151,6 +159,17 @@
       "deleted": "Kategori silindi",
       "status_updated": "Kategori durumu güncellendi",
       "moved": "Kategori taşındı"
+    }
+  },
+  "email": {
+    "from_name": "Admin Panel",
+    "tfa": {
+      "subject": "Giriş Doğrulama Kodu",
+      "title": "Güvenlik Doğrulaması",
+      "message": "Hesabınıza giriş yapmak için aşağıdaki doğrulama kodunu kullanın:",
+      "warning_title": "Güvenlik Uyarısı",
+      "warning_message": "Bu kod 5 dakika içinde geçersiz olacaktır. Kodu kimseyle paylaşmayın.",
+      "footer": "Bu e-posta otomatik olarak gönderilmiştir. Lütfen yanıtlamayın."
     }
   }
 }

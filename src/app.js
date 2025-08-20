@@ -14,6 +14,7 @@ const errorHandler = require('./middleware/errorHandler');
 const securityMiddleware = require('./middleware/security');
 const logger = require('./utils/logger');
 const { addTranslationHelper, initializeI18n, i18next } = require('./config/i18n');
+const { initializeEmailService } = require('./services/emailService');
 
 const createApp = async () => {
   const app = express();
@@ -22,6 +23,7 @@ const createApp = async () => {
   app.disable('x-powered-by');
 
   await initializeI18n();
+  initializeEmailService();
 
   app.use(helmet({
     contentSecurityPolicy: false

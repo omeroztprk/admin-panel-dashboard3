@@ -63,7 +63,12 @@
       "authentication_required": "Authentifizierung ist erforderlich",
       "insufficient_permissions": "Unzureichende Berechtigungen",
       "too_many_attempts_dynamic": "Zu viele fehlgeschlagene Anmeldeversuche. Bitte versuchen Sie es in {{minute}} Min. {{seconds}} Sek. erneut",
-      "too_many_failed_dynamic": "Zu viele Anmeldeversuche von Ihrer IP. Bitte versuchen Sie es in {{minute}} Min. {{seconds}} Sek. erneut"
+      "too_many_failed_dynamic": "Zu viele Anmeldeversuche von Ihrer IP. Bitte versuchen Sie es in {{minute}} Min. {{seconds}} Sek. erneut",
+      "tfa_code_required": "Zwei-Faktor-Authentifizierungscode erforderlich",
+      "tfa_invalid_code": "Ungültiger Bestätigungscode",
+      "tfa_code_expired": "Bestätigungscode ist abgelaufen",
+      "tfa_max_attempts": "Zu viele fehlgeschlagene Versuche. Neuen Code anfordern",
+      "tfa_email_failed": "Bestätigungscode konnte nicht gesendet werden"
     },
     "user": {
       "not_found": "Benutzer nicht gefunden",
@@ -114,11 +119,14 @@
       "login_success": "Anmeldung erfolgreich",
       "logout_success": "Abmeldung erfolgreich",
       "logout_all_success": "Erfolgreich von allen Sitzungen abgemeldet",
-      "register_success": "Registrierung erfolgreich",
+      "register_success": "Registrierung abgeschlossen. Bitte verwenden Sie Ihre Anmeldedaten zum Einloggen",
+      "registration_completed": "Ihr Konto wurde erfolgreich erstellt. Sie können sich jetzt anmelden",
       "token_refreshed": "Token erfolgreich aktualisiert",
       "profile_updated": "Profil erfolgreich aktualisiert",
       "password_changed": "Passwort erfolgreich geändert",
-      "session_revoked": "Sitzung erfolgreich beendet"
+      "session_revoked": "Sitzung erfolgreich beendet",
+      "tfa_code_sent": "Bestätigungscode an Ihre E-Mail gesendet",
+      "tfa_verified": "Zwei-Faktor-Authentifizierung erfolgreich"
     },
     "user": {
       "created": "Benutzer erfolgreich erstellt",
@@ -151,6 +159,17 @@
       "deleted": "Kategorie erfolgreich gelöscht",
       "status_updated": "Kategorie status erfolgreich aktualisiert",
       "moved": "Kategorie erfolgreich verschoben"
+    }
+  },
+  "email": {
+    "from_name": "Admin Panel",
+    "tfa": {
+      "subject": "Anmelde-Bestätigungscode",
+      "title": "Sicherheitsüberprüfung",
+      "message": "Verwenden Sie den folgenden Bestätigungscode, um sich in Ihr Konto einzuloggen:",
+      "warning_title": "Sicherheitswarnung",
+      "warning_message": "Dieser Code läuft in 5 Minuten ab. Teilen Sie diesen Code nicht mit anderen.",
+      "footer": "Diese E-Mail wurde automatisch gesendet. Bitte antworten Sie nicht."
     }
   }
 }
