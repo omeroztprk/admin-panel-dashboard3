@@ -38,14 +38,27 @@ const getPermissions = async (filters = {}, options = {}) => {
 
   return {
     permissions,
-    pagination: { page, limit, total, pages: Math.ceil(total / limit) }
+    pagination: {
+      currentPage: page,
+      totalPages: Math.ceil(total / limit),
+      totalItems: total,
+      itemsPerPage: limit,
+      hasNextPage: page < Math.ceil(total / limit),
+      hasPrevPage: page > 1
+    }
   };
 };
 
 const getPermissionById = async (permissionId) => {
-  return Permission.findById(permissionId)
+  const permission = await Permission.findById(permissionId)
     .populate('metadata.createdBy', 'firstName lastName')
     .populate('metadata.updatedBy', 'firstName lastName');
+
+  if (!permission) {
+    throw new Error(ERRORS.PERMISSION.NOT_FOUND);
+  }
+
+  return permission;
 };
 
 const createPermission = async (permissionData) => {
@@ -55,8 +68,10 @@ const createPermission = async (permissionData) => {
     ? name.trim()
     : `${resource}:${action}`;
 
-  const exists = await Permission.findOne({ name: permissionName });
-  if (exists) throw new Error(ERRORS.PERMISSION.NAME_EXISTS);
+  const existingPermission = await Permission.findOne({ name: permissionName });
+  if (existingPermission) {
+    throw new Error(ERRORS.PERMISSION.NAME_EXISTS);
+  }
 
   const permission = new Permission({
     ...otherData,
@@ -70,55 +85,98 @@ const createPermission = async (permissionData) => {
 };
 
 const updatePermission = async (permissionId, updates) => {
-  const existing = await Permission.findById(permissionId);
-  if (!existing) throw new Error(ERRORS.PERMISSION.NOT_FOUND);
-  if (existing.isSystem) throw new Error(ERRORS.PERMISSION.SYSTEM_PERMISSION_MODIFICATION);
+  const existingPermission = await Permission.findById(permissionId);
+  if (!existingPermission) {
+    throw new Error(ERRORS.PERMISSION.NOT_FOUND);
+  }
+
+  if (existingPermission.isSystem) {
+    throw new Error(ERRORS.PERMISSION.SYSTEM_PERMISSION_MODIFICATION);
+  }
 
   if (updates.resource || updates.action || updates.name) {
-    const nextResource = updates.resource || existing.resource;
-    const nextAction = updates.action || existing.action;
+    const nextResource = updates.resource || existingPermission.resource;
+    const nextAction = updates.action || existingPermission.action;
     const nextName = (typeof updates.name === 'string' && updates.name.trim())
       ? updates.name.trim()
       : `${nextResource}:${nextAction}`;
 
-    const nameExists = await Permission.findOne({ name: nextName, _id: { $ne: permissionId } });
-    if (nameExists) throw new Error(ERRORS.PERMISSION.NAME_EXISTS);
+    const nameExists = await Permission.findOne({ 
+      name: nextName, 
+      _id: { $ne: permissionId } 
+    });
+    if (nameExists) {
+      throw new Error(ERRORS.PERMISSION.NAME_EXISTS);
+    }
 
     updates.name = nextName;
   }
 
-  await Permission.findByIdAndUpdate(permissionId, updates, { new: true, runValidators: true });
+  const finalUpdates = {
+    ...updates,
+    metadata: {
+      ...existingPermission.metadata,
+      ...updates.metadata,
+      updatedAt: new Date()
+    }
+  };
+
+  await Permission.findByIdAndUpdate(permissionId, finalUpdates, { 
+    new: true, 
+    runValidators: true 
+  });
+
   return getPermissionById(permissionId);
 };
 
 const deletePermission = async (permissionId) => {
   const permission = await Permission.findById(permissionId);
-  if (!permission) throw new Error(ERRORS.PERMISSION.NOT_FOUND);
-  if (permission.isSystem) throw new Error(ERRORS.PERMISSION.SYSTEM_PERMISSION_DELETE);
+  if (!permission) {
+    throw new Error(ERRORS.PERMISSION.NOT_FOUND);
+  }
+
+  if (permission.isSystem) {
+    throw new Error(ERRORS.PERMISSION.SYSTEM_PERMISSION_DELETE);
+  }
 
   const roleCount = await Role.countDocuments({ permissions: permissionId });
-  if (roleCount > 0) throw new Error(ERRORS.PERMISSION.ASSIGNED_TO_ROLES);
+  if (roleCount > 0) {
+    throw new Error(ERRORS.PERMISSION.ASSIGNED_TO_ROLES);
+  }
 
   const userCount = await User.countDocuments({ 'permissions.permission': permissionId });
-  if (userCount > 0) throw new Error(ERRORS.PERMISSION.ASSIGNED_TO_USERS);
+  if (userCount > 0) {
+    throw new Error(ERRORS.PERMISSION.ASSIGNED_TO_USERS);
+  }
 
   await Permission.findByIdAndDelete(permissionId);
   return true;
 };
 
-const togglePermissionStatus = async (permissionId, isActive, { updatedBy } = {}) => {
+const togglePermissionStatus = async (permissionId, isActive, actorId) => {
   const permission = await Permission.findById(permissionId);
-  if (!permission) throw new Error(ERRORS.PERMISSION.NOT_FOUND);
-  if (permission.isSystem) throw new Error(ERRORS.PERMISSION.SYSTEM_PERMISSION_MODIFICATION);
+  if (!permission) {
+    throw new Error(ERRORS.PERMISSION.NOT_FOUND);
+  }
 
-  permission.isActive = !!isActive;
-  permission.metadata = {
-    ...(permission.metadata || {}),
-    updatedBy,
-    updatedAt: new Date()
+  if (permission.isSystem) {
+    throw new Error(ERRORS.PERMISSION.SYSTEM_PERMISSION_MODIFICATION);
+  }
+
+  const updates = {
+    isActive: !!isActive,
+    metadata: {
+      ...permission.metadata,
+      updatedBy: actorId,
+      updatedAt: new Date()
+    }
   };
 
-  await permission.save();
+  await Permission.findByIdAndUpdate(permissionId, updates, { 
+    new: true, 
+    runValidators: true 
+  });
+
   return getPermissionById(permissionId);
 };
 

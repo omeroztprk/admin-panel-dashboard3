@@ -40,6 +40,11 @@ roleSchema.index({ isActive: 1, priority: -1 });
 roleSchema.index({ isSystem: 1, isActive: 1 });
 roleSchema.index({ permissions: 1 });
 
+roleSchema.index({ name: 'text', displayName: 'text' }, {
+  weights: { name: 5, displayName: 3 },
+  name: 'role_text_search',
+});
+
 roleSchema.virtual('userCount', {
   ref: 'User',
   localField: '_id',

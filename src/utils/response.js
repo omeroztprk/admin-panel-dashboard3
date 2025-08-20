@@ -1,15 +1,12 @@
 const logger = require('./logger');
-const { t: globalT, resolveLanguage, i18next } = require('../config/i18n');
+const config = require('../config');
+const { t: globalT, resolveLanguage, detectLanguage } = require('../config/i18n');
 const { getClientIP } = require('../utils/helpers');
 
 const applyLangHeaders = (res) => {
   try {
     const req = res.req;
-    let lng =
-      (req?.getLanguage && req.getLanguage()) ||
-      req?.user?.profile?.language ||
-      req?.headers?.['accept-language'];
-    lng = resolveLanguage(lng);
+    let lng = detectLanguage(req) || config.i18n.defaultLanguage;
 
     if (!res.get('Content-Language')) res.set('Content-Language', lng);
 
@@ -17,7 +14,8 @@ const applyLangHeaders = (res) => {
     if (!vary || !vary.split(',').map((s) => s.trim().toLowerCase()).includes('accept-language')) {
       res.set('Vary', vary ? `${vary}, Accept-Language` : 'Accept-Language');
     }
-  } catch (_) { }
+  } catch (error) {
+  }
 };
 
 const translateMessage = (req, message) => {
@@ -32,19 +30,20 @@ const translateMessage = (req, message) => {
       ? req.t(message, { lng: lngForCheck })
       : globalT(message, { lng: lngForCheck });
 
-    if (primary && primary !== message) return primary;
+    if (primary && primary !== message && typeof primary === 'string') return primary;
 
     const fallbackEn = globalT(message, { lng: 'en' });
-    if (fallbackEn && fallbackEn !== message) return fallbackEn;
+    if (fallbackEn && fallbackEn !== message && typeof fallbackEn === 'string') return fallbackEn;
+    
+    return message;
   } catch (error) {
     logger.error('Translation error in response:', {
       message,
       error: error.message,
       req: { url: req?.originalUrl, method: req?.method, userLanguage: req?.user?.profile?.language },
     });
+    return message;
   }
-
-  return message;
 };
 
 const success = (res, message, data = null, statusCode = 200) => {
@@ -61,8 +60,8 @@ const error = (res, message, statusCode = 500, errors = null) => {
   const body = { status: 'error', message: translatedMessage, timestamp: new Date().toISOString() };
   if (errors) body.errors = errors;
 
-  if (statusCode >= 500) {
-    logger.error('Response Error:', {
+  if (statusCode >= 500 && config.env === 'development') {
+    logger.debug('Response Error (will be logged by errorHandler):', {
       message: translatedMessage,
       originalMessage: message,
       statusCode,
@@ -84,13 +83,15 @@ const validationError = (res, message, errors = [], statusCode = 400) => {
 const paginated = (res, message, data, pagination, statusCode = 200) => {
   applyLangHeaders(res);
   const translatedMessage = translateMessage(res.req, message);
+  
+  const safePagination = pagination || {};
   const validatedPagination = {
-    currentPage: pagination.currentPage || 1,
-    totalPages: pagination.totalPages || 1,
-    totalItems: pagination.totalItems || 0,
-    itemsPerPage: pagination.itemsPerPage || 10,
-    hasNextPage: pagination.hasNextPage || false,
-    hasPrevPage: pagination.hasPrevPage || false,
+    currentPage: safePagination.currentPage || safePagination.page || 1,
+    totalPages: safePagination.totalPages || safePagination.pages || 1,
+    totalItems: safePagination.totalItems || safePagination.total || 0,
+    itemsPerPage: safePagination.itemsPerPage || safePagination.limit || 10,
+    hasNextPage: safePagination.hasNextPage !== undefined ? safePagination.hasNextPage : false,
+    hasPrevPage: safePagination.hasPrevPage !== undefined ? safePagination.hasPrevPage : false,
   };
 
   const body = {

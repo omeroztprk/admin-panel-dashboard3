@@ -10,6 +10,8 @@ const getUsersQuery = [
   query('search').optional().isString().isLength({ min: 2 }).withMessage('errors.validation.invalid_input'),
   query('role').optional().isMongoId().withMessage('errors.validation.invalid_object_id'),
   query('isActive').optional().isBoolean().toBoolean().withMessage('errors.validation.invalid_input'),
+  query('startDate').optional().isISO8601().withMessage('errors.validation.invalid_input'),
+  query('endDate').optional().isISO8601().withMessage('errors.validation.invalid_input'),
 ];
 
 const createUser = [
@@ -36,14 +38,15 @@ const updateUser = [
   body('email').optional().isEmail().normalizeEmail().withMessage('errors.validation.invalid_email'),
   body('roles').optional().isArray().withMessage('errors.validation.invalid_input'),
   body('roles.*').optional().isMongoId().withMessage('errors.validation.invalid_object_id'),
-  body('isActive').optional().isBoolean().toBoolean().withMessage('errors.validation.invalid_input'),
   body('profile.language')
     .optional()
     .customSanitizer((v) => resolveLanguage(v))
     .isIn(supportedLanguages).withMessage('errors.validation.invalid_input'),
 ];
 
-const toggleStatus = [body('isActive').isBoolean().toBoolean().withMessage('errors.validation.invalid_input')];
+const toggleStatus = [
+  body('isActive').isBoolean().toBoolean().withMessage('errors.validation.invalid_input'),
+];
 
 const assignRoles = [
   body('roles').isArray().withMessage('errors.validation.invalid_input'),

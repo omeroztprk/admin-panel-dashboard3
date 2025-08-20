@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const logger = require('../utils/logger');
 const config = require('../config');
+const { SEVERITY } = require('../utils/constants');
 const { escapeRegex, isValidObjectId } = require('../utils/helpers');
 
 const auditLogSchema = new mongoose.Schema({
@@ -32,8 +33,7 @@ const auditLogSchema = new mongoose.Schema({
   duration: Number,
   errorMessage: String,
 
-  severity: { type: String, enum: ['low', 'medium', 'high', 'critical'], default: 'low' },
-  tags: [String],
+  severity: { type: String, enum: Object.values(SEVERITY), default: SEVERITY.LOW },
   metadata: mongoose.Schema.Types.Mixed,
 }, {
   timestamps: true,

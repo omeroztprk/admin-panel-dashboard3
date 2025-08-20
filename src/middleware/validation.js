@@ -8,19 +8,21 @@ const validateRequest = (req, res, next) => {
 
   const errorMessages = errors.array().map((error) => ({
     field: error.path || error.param,
-    message: req.t ? req.t(error.msg) : error.msg,
-    value: error.value,
+    message: req.t(error.msg),
+    value: typeof error.value === 'string' 
+      ? error.value.slice(0, 100) 
+      : (error.value !== null && error.value !== undefined) 
+        ? String(error.value).slice(0, 100) 
+        : error.value
   }));
 
-  const validationMessage = req.t ? req.t(ERRORS.VALIDATION.INVALID_INPUT) : 'Invalid input data';
-  return response.validationError(res, validationMessage, errorMessages);
+  return response.validationError(res, req.t(ERRORS.VALIDATION.INVALID_INPUT), errorMessages);
 };
 
 const validateObjectId = (paramName = 'id') => (req, res, next) => {
   const id = req.params[paramName];
   if (!id || !/^[0-9a-fA-F]{24}$/.test(id)) {
-    const message = req.t ? req.t(ERRORS.VALIDATION.INVALID_OBJECT_ID) : 'Invalid ObjectId format';
-    return response.error(res, message, 400);
+    return response.error(res, req.t(ERRORS.VALIDATION.INVALID_OBJECT_ID), 400);
   }
   next();
 };

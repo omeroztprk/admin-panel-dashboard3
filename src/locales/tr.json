@@ -43,7 +43,8 @@
       "category_name_length": "Kategori adı 2 ile 100 karakter arasında olmalıdır",
       "slug_required": "Slug zorunludur",
       "slug_format": "Slug sadece küçük harf, rakam ve tire içerebilir",
-      "order_range": "Sıra 0 ile 10000 arasında olmalıdır"
+      "order_range": "Sıra 0 ile 10000 arasında olmalıdır",
+      "date_range_too_large": "Tarih aralığı çok geniş. İzin verilen maksimum aralık {{days}} gündür"
     },
     "auth": {
       "invalid_credentials": "Geçersiz e-posta veya şifre",

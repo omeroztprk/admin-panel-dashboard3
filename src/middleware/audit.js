@@ -20,17 +20,11 @@ const deepMask = (obj, keysToMask = ['password', 'confirmPassword', 'currentPass
   try { return recur(obj); } catch { return {}; }
 };
 
-const safeSlice = (str, max = 5000) => {
-  if (str == null) return '';
-  const s = String(str);
-  return s.length > max ? `${s.slice(0, max)}...[TRUNCATED]` : s;
-};
-
 const clampObject = (obj, maxLen = 5000) => {
   try {
     const s = JSON.stringify(obj);
     if (s.length <= maxLen) return obj;
-    return { _truncated: true, preview: safeSlice(s, maxLen) };
+    return { _truncated: true, preview: s.slice(0, maxLen) + '...[TRUNCATED]' };
   } catch {
     return { _truncated: true, preview: '[Unserializable]' };
   }
@@ -39,140 +33,106 @@ const clampObject = (obj, maxLen = 5000) => {
 const shouldLogRequest = (req, res) => {
   const url = req.originalUrl || '';
   if (url.includes('/health') || url.includes('/favicon.ico')) return false;
-  if (url.includes('/audit/export')) return false;
   if (url.includes('/auth/')) return true;
   if (res.statusCode >= 400) return true;
   if (req.method !== 'GET') return true;
-  if (url.includes('/admin/')) return true;
   return false;
 };
 
-const getActionFromRequest = (req) => {
-  const method = req.method?.toLowerCase();
-  const path = req.route?.path || req.originalUrl || '';
-
-  if (path.includes('/auth/login')) return 'login';
-  if (path.includes('/auth/logout')) return 'logout';
-  if (path.includes('/auth/register')) return 'register';
-  if (path.includes('/auth/refresh') || path.includes('/auth/refresh-token')) return 'token_refresh';
-
-  switch (method) {
+const getActionFromMethod = (method) => {
+  switch (method?.toLowerCase()) {
     case 'post': return 'create';
     case 'put':
     case 'patch': return 'update';
     case 'delete': return 'delete';
     case 'get': return 'read';
-    default: return method || 'unknown';
+    default: return 'unknown';
   }
 };
 
-const getResourceFromRequest = (req) => {
-  const parts = (req.originalUrl || '').split('/').filter(Boolean);
+const getResourceFromUrl = (url) => {
+  const parts = (url || '').split('/').filter(Boolean);
   if (parts.includes('auth')) return 'auth';
   if (parts.includes('users')) return 'user';
   if (parts.includes('roles')) return 'role';
   if (parts.includes('permissions')) return 'permission';
   if (parts.includes('audit')) return 'audit';
+  if (parts.includes('categories')) return 'category';
   return 'unknown';
 };
 
-const getSeverityLevel = (req, res) => {
-  if (res.statusCode >= 500) return 'critical';
-  if (res.statusCode >= 400) return 'high';
-  if ((req.originalUrl || '').includes('/auth/')) return 'medium';
-  if (req.method !== 'GET') return 'medium';
+const getSeverityFromStatus = (statusCode, resource, action) => {
+  if (statusCode >= 500) return 'critical';
+  if (statusCode >= 400) return 'high';
+  if (resource === 'auth' || ['create', 'update', 'delete'].includes(action)) return 'medium';
   return 'low';
 };
 
-const generateTags = (req, res) => {
-  const tags = [];
-  if (req.user) tags.push('authenticated');
-  if (res.statusCode >= 400) tags.push('error');
-  if ((req.originalUrl || '').includes('/auth/')) tags.push('authentication');
-  if (req.method !== 'GET') tags.push('data_modification');
-  return tags;
-};
-
-const logRequest = (req, res, next) => {
-  const startTime = Date.now();
-  let responseData = null;
-
-  const originalJson = res.json.bind(res);
-  res.json = (data) => { responseData = data; return originalJson(data); };
-
-  const originalSend = res.send.bind(res);
-  res.send = (data) => {
-    try {
-      if (data && typeof data === 'object') responseData = data;
-      else if (typeof data === 'string' && data.startsWith('{')) responseData = JSON.parse(data);
-    } catch { }
-    return originalSend(data);
-  };
-
-  const onFinish = async () => {
-    res.removeListener('finish', onFinish);
-    res.removeListener('close', onFinish);
-
-    const duration = Date.now() - startTime;
-
-    try {
-      if (!shouldLogRequest(req, res)) return;
-
-      const sessionId = req.sessionID || req.headers['x-request-id'] || undefined;
-
-      const payload = {
-        user: req.user?._id,
-        action: getActionFromRequest(req),
-        resource: getResourceFromRequest(req),
-        resourceId: req.params?.id || req.params?.userId || req.params?.roleId,
-        method: req.method,
-        endpoint: req.originalUrl,
-        statusCode: res.statusCode,
-        userAgent: req.get('User-Agent'),
-        ipAddress: getClientIP(req),
-        sessionId,
-        requestData: clampObject(deepMask({ query: req.query, body: req.body, params: req.params })),
-        responseData: clampObject(deepMask(responseData)),
-        duration,
-        severity: getSeverityLevel(req, res),
-        tags: generateTags(req, res)
-      };
-
-      await AuditLog.createLog(payload);
-    } catch (error) {
-      logger.error('Failed to create audit log:', error);
-    }
-  };
-
-  res.once('finish', onFinish);
-  res.once('close', onFinish);
-
-  next();
-};
-
-const logUserAction = (action, resource, resourceId, changes = null) => {
+const auditLogger = (customAction = null, customResource = null, customSeverity = null) => {
   return async (req, res, next) => {
-    try {
-      const logData = {
-        user: req.user?._id,
-        action,
-        resource,
-        resourceId,
-        method: req.method,
-        endpoint: req.originalUrl,
-        statusCode: res.statusCode,
-        userAgent: req.get('User-Agent'),
-        ipAddress: getClientIP(req),
-        severity: 'medium',
-        tags: ['user_action']
-      };
-      if (changes) logData.changes = changes;
-      await AuditLog.createLog(logData);
-    } catch (error) {
-      logger.error('Failed to log user action:', error);
-    }
+    const startTime = Date.now();
+    let responseData = null;
+
+    const originalJson = res.json.bind(res);
+    res.json = (data) => { 
+      try {
+        const dataStr = JSON.stringify(data);
+        if (dataStr.length < 5000) {
+          responseData = data;
+        } else {
+          responseData = { _truncated: true, preview: dataStr.slice(0, 200) + '...' };
+        }
+      } catch {
+        responseData = { _error: 'Unserializable response' };
+      }
+      return originalJson(data); 
+    };
+
+    const cleanup = () => {
+      responseData = null;
+      if (res.json !== originalJson) {
+        res.json = originalJson;
+      }
+    };
+
+    res.once('finish', async () => {
+      try {
+        if (!customAction && !shouldLogRequest(req, res)) return cleanup();
+
+        const action = customAction || getActionFromMethod(req.method);
+        const resource = customResource || getResourceFromUrl(req.originalUrl);
+        const severity = customSeverity || getSeverityFromStatus(res.statusCode, resource, action);
+
+        const payload = {
+          user: req.user?._id,
+          action,
+          resource,
+          resourceId: req.params?.id || req.params?.userId || req.params?.roleId || req.params?.permissionId || req.params?.categoryId,
+          method: req.method,
+          endpoint: req.originalUrl,
+          statusCode: res.statusCode,
+          userAgent: req.get('User-Agent'),
+          ipAddress: getClientIP(req),
+          sessionId: req.sessionID || req.headers['x-request-id'],
+          requestData: clampObject(deepMask({ query: req.query, body: req.body, params: req.params })),
+          responseData: clampObject(deepMask(responseData)),
+          duration: Date.now() - startTime,
+          severity
+        };
+
+        await AuditLog.createLog(payload);
+      } catch (error) {
+        logger.error('Failed to create audit log:', error);
+      } finally {
+        cleanup();
+      }
+    });
+
     next();
   };
 };
+
+const logRequest = auditLogger();
+const logUserAction = (action, resource, severity) => auditLogger(action, resource, severity);
 
 module.exports = { logRequest, logUserAction };

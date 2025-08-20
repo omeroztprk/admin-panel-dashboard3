@@ -18,8 +18,7 @@ const ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD || 'Admin123!';
 const connectDB = async () => {
   const uri = process.env.MONGODB_URI;
   if (!uri) {
-    console.error('❌ MONGODB_URI not set');
-    process.exit(1);
+    throw new Error('MONGODB_URI environment variable is required');
   }
 
   const maxRetries = 3;
@@ -27,20 +26,19 @@ const connectDB = async () => {
 
   while (retryCount < maxRetries) {
     try {
-      await mongoose.connect(uri, { serverSelectionTimeoutMS: 10000 });
-      console.log('✅ MongoDB connected for seeding...');
+      await mongoose.connect(uri, {
+        maxPoolSize: 10,
+        minPoolSize: 1,
+        serverSelectionTimeoutMS: 10000,
+        socketTimeoutMS: 45000,
+      });
+      console.log('✅ Database connected successfully');
       return;
     } catch (error) {
       retryCount++;
-      console.error(`❌ MongoDB connection attempt ${retryCount}/${maxRetries} failed:`, error.message);
-
-      if (retryCount === maxRetries) {
-        console.error('💀 Failed to connect to MongoDB after all retries');
-        process.exit(1);
-      }
-
-      console.log('⏳ Retrying in 3 seconds...');
-      await new Promise((resolve) => setTimeout(resolve, 3000));
+      console.error(`❌ Database connection attempt ${retryCount} failed:`, error.message);
+      if (retryCount >= maxRetries) throw error;
+      await new Promise(resolve => setTimeout(resolve, 2000 * retryCount));
     }
   }
 };
@@ -51,26 +49,35 @@ const clearExistingData = async (options = {}) => {
   try {
     console.log('🧹 Clearing existing data...');
 
-    if (preserveSystemData) {
-      await Permission.deleteMany({ isSystem: { $ne: true } });
-      await Role.deleteMany({ isSystem: { $ne: true } });
-      await Category.deleteMany({ isSystem: { $ne: true } });
-
-      if (preserveSuperAdmin) {
-        await User.deleteMany({ email: { $ne: ADMIN_EMAIL } });
-      } else {
-        await User.deleteMany({});
-      }
-    } else {
+    if (!preserveSystemData) {
       await Permission.deleteMany({});
       await Role.deleteMany({});
       await Category.deleteMany({});
-      await User.deleteMany({});
+      console.log('   🗑️  All system data cleared');
+    } else {
+      await Permission.deleteMany({ isSystem: { $ne: true } });
+      await Role.deleteMany({ isSystem: { $ne: true } });
+      await Category.deleteMany({ isSystem: { $ne: true } });
+      console.log('   🗑️  Non-system data cleared');
     }
 
-    console.log('   ✅ Data cleanup completed');
+    if (!preserveSuperAdmin) {
+      await User.deleteMany({});
+      console.log('   🗑️  All users cleared');
+    } else {
+      const superAdminRole = await Role.findOne({ name: ROLES.SUPER_ADMIN });
+      if (superAdminRole) {
+        await User.deleteMany({ roles: { $ne: superAdminRole._id } });
+        console.log('   🗑️  Non-super-admin users cleared');
+      } else {
+        await User.deleteMany({});
+        console.log('   🗑️  All users cleared (no super admin role found)');
+      }
+    }
+
+    console.log('🧹 Data clearing completed');
   } catch (error) {
-    console.error('   ❌ Error during cleanup:', error.message);
+    console.error('❌ Error clearing data:', error.message);
     throw error;
   }
 };
@@ -83,41 +90,36 @@ const createPermissions = async () => {
   console.log('📋 Creating comprehensive permission system...');
 
   const permissions = [
-    // 👤 USER MANAGEMENT
+    // User Management Permissions
     { name: PERMISSIONS.USER_READ, displayName: 'View Users', description: 'View user information, profiles, and account details', resource: RESOURCES.USER, action: ACTIONS.READ, category: PERMISSION_CATEGORIES.USER_MANAGEMENT },
     { name: PERMISSIONS.USER_CREATE, displayName: 'Create Users', description: 'Create new user accounts and manage user onboarding', resource: RESOURCES.USER, action: ACTIONS.CREATE, category: PERMISSION_CATEGORIES.USER_MANAGEMENT },
     { name: PERMISSIONS.USER_UPDATE, displayName: 'Update Users', description: 'Edit user information, profiles, and account settings', resource: RESOURCES.USER, action: ACTIONS.UPDATE, category: PERMISSION_CATEGORIES.USER_MANAGEMENT },
     { name: PERMISSIONS.USER_DELETE, displayName: 'Delete Users', description: 'Delete user accounts and manage user offboarding', resource: RESOURCES.USER, action: ACTIONS.DELETE, category: PERMISSION_CATEGORIES.USER_MANAGEMENT },
-    { name: PERMISSIONS.USER_MANAGE, displayName: 'Manage Users', description: 'Full user management including roles, permissions', resource: RESOURCES.USER, action: ACTIONS.MANAGE, category: PERMISSION_CATEGORIES.USER_MANAGEMENT },
-    { name: PERMISSIONS.USER_UNLOCK, displayName: 'Unlock Users', description: 'Unlock locked user accounts and reset security flags', resource: RESOURCES.USER, action: ACTIONS.UNLOCK, category: PERMISSION_CATEGORIES.USER_MANAGEMENT },
+    { name: PERMISSIONS.USER_MANAGE, displayName: 'Manage Users', description: 'Full user management including roles, permissions, status changes', resource: RESOURCES.USER, action: ACTIONS.MANAGE, category: PERMISSION_CATEGORIES.USER_MANAGEMENT },
 
-    // 🛡️ ROLE MANAGEMENT
+    // Role Management Permissions
     { name: PERMISSIONS.ROLE_READ, displayName: 'View Roles', description: 'View role information, permissions, and hierarchy', resource: RESOURCES.ROLE, action: ACTIONS.READ, category: PERMISSION_CATEGORIES.ROLE_MANAGEMENT },
     { name: PERMISSIONS.ROLE_CREATE, displayName: 'Create Roles', description: 'Create new roles for access control', resource: RESOURCES.ROLE, action: ACTIONS.CREATE, category: PERMISSION_CATEGORIES.ROLE_MANAGEMENT },
     { name: PERMISSIONS.ROLE_UPDATE, displayName: 'Update Roles', description: 'Edit role information, permissions, and assignments', resource: RESOURCES.ROLE, action: ACTIONS.UPDATE, category: PERMISSION_CATEGORIES.ROLE_MANAGEMENT },
     { name: PERMISSIONS.ROLE_DELETE, displayName: 'Delete Roles', description: 'Delete roles and manage role lifecycle', resource: RESOURCES.ROLE, action: ACTIONS.DELETE, category: PERMISSION_CATEGORIES.ROLE_MANAGEMENT },
-    { name: PERMISSIONS.ROLE_MANAGE, displayName: 'Manage Roles', description: 'Full role management', resource: RESOURCES.ROLE, action: ACTIONS.MANAGE, category: PERMISSION_CATEGORIES.ROLE_MANAGEMENT },
+    { name: PERMISSIONS.ROLE_MANAGE, displayName: 'Manage Roles', description: 'Full role management including permission assignments', resource: RESOURCES.ROLE, action: ACTIONS.MANAGE, category: PERMISSION_CATEGORIES.ROLE_MANAGEMENT },
 
-    // 🔑 PERMISSION MANAGEMENT
-    { name: PERMISSIONS.PERMISSION_READ, displayName: 'View Permissions', description: 'View permission information', resource: RESOURCES.PERMISSION, action: ACTIONS.READ, category: PERMISSION_CATEGORIES.PERMISSION_MANAGEMENT },
-    { name: PERMISSIONS.PERMISSION_CREATE, displayName: 'Create Permissions', description: 'Create new permissions', resource: RESOURCES.PERMISSION, action: ACTIONS.CREATE, category: PERMISSION_CATEGORIES.PERMISSION_MANAGEMENT },
-    { name: PERMISSIONS.PERMISSION_UPDATE, displayName: 'Update Permissions', description: 'Edit permission information', resource: RESOURCES.PERMISSION, action: ACTIONS.UPDATE, category: PERMISSION_CATEGORIES.PERMISSION_MANAGEMENT },
-    { name: PERMISSIONS.PERMISSION_DELETE, displayName: 'Delete Permissions', description: 'Delete permissions', resource: RESOURCES.PERMISSION, action: ACTIONS.DELETE, category: PERMISSION_CATEGORIES.PERMISSION_MANAGEMENT },
-    { name: PERMISSIONS.PERMISSION_MANAGE, displayName: 'Manage Permissions', description: 'Full permission management', resource: RESOURCES.PERMISSION, action: ACTIONS.MANAGE, category: PERMISSION_CATEGORIES.PERMISSION_MANAGEMENT },
+    // Permission Management Permissions
+    { name: PERMISSIONS.PERMISSION_READ, displayName: 'View Permissions', description: 'View permission information and categories', resource: RESOURCES.PERMISSION, action: ACTIONS.READ, category: PERMISSION_CATEGORIES.PERMISSION_MANAGEMENT },
+    { name: PERMISSIONS.PERMISSION_CREATE, displayName: 'Create Permissions', description: 'Create new permissions for system resources', resource: RESOURCES.PERMISSION, action: ACTIONS.CREATE, category: PERMISSION_CATEGORIES.PERMISSION_MANAGEMENT },
+    { name: PERMISSIONS.PERMISSION_UPDATE, displayName: 'Update Permissions', description: 'Edit permission information and properties', resource: RESOURCES.PERMISSION, action: ACTIONS.UPDATE, category: PERMISSION_CATEGORIES.PERMISSION_MANAGEMENT },
+    { name: PERMISSIONS.PERMISSION_DELETE, displayName: 'Delete Permissions', description: 'Delete permissions from the system', resource: RESOURCES.PERMISSION, action: ACTIONS.DELETE, category: PERMISSION_CATEGORIES.PERMISSION_MANAGEMENT },
+    { name: PERMISSIONS.PERMISSION_MANAGE, displayName: 'Manage Permissions', description: 'Full permission management including status changes', resource: RESOURCES.PERMISSION, action: ACTIONS.MANAGE, category: PERMISSION_CATEGORIES.PERMISSION_MANAGEMENT },
 
-    // 📊 AUDIT
-    { name: PERMISSIONS.AUDIT_READ, displayName: 'View Audit Logs', description: 'View system audit logs', resource: RESOURCES.AUDIT, action: ACTIONS.READ, category: PERMISSION_CATEGORIES.AUDIT_MANAGEMENT },
-    { name: PERMISSIONS.AUDIT_EXPORT, displayName: 'Export Audit Logs', description: 'Export audit logs', resource: RESOURCES.AUDIT, action: ACTIONS.EXPORT, category: PERMISSION_CATEGORIES.AUDIT_MANAGEMENT },
+    // Audit Management Permissions
+    { name: PERMISSIONS.AUDIT_READ, displayName: 'View Audit Logs', description: 'View system audit logs, security events, and user activities', resource: RESOURCES.AUDIT, action: ACTIONS.READ, category: PERMISSION_CATEGORIES.AUDIT_MANAGEMENT },
 
-    // ⚙️ SYSTEM
-    { name: PERMISSIONS.SYSTEM_HEALTH, displayName: 'System Health Monitoring', description: 'Monitor system health', resource: RESOURCES.SYSTEM, action: ACTIONS.HEALTH, category: PERMISSION_CATEGORIES.SYSTEM_MANAGEMENT },
-
-    // 🗂️ CATEGORY MANAGEMENT
-    { name: PERMISSIONS.CATEGORY_READ, displayName: 'View Categories', description: 'View categories and their hierarchy', resource: RESOURCES.CATEGORY, action: ACTIONS.READ, category: PERMISSION_CATEGORIES.CATEGORY_MANAGEMENT },
-    { name: PERMISSIONS.CATEGORY_CREATE, displayName: 'Create Categories', description: 'Create new categories', resource: RESOURCES.CATEGORY, action: ACTIONS.CREATE, category: PERMISSION_CATEGORIES.CATEGORY_MANAGEMENT },
-    { name: PERMISSIONS.CATEGORY_UPDATE, displayName: 'Update Categories', description: 'Edit category details and parent', resource: RESOURCES.CATEGORY, action: ACTIONS.UPDATE, category: PERMISSION_CATEGORIES.CATEGORY_MANAGEMENT },
-    { name: PERMISSIONS.CATEGORY_DELETE, displayName: 'Delete Categories', description: 'Delete categories', resource: RESOURCES.CATEGORY, action: ACTIONS.DELETE, category: PERMISSION_CATEGORIES.CATEGORY_MANAGEMENT },
-    { name: PERMISSIONS.CATEGORY_MANAGE, displayName: 'Manage Categories', description: 'Category status/move/ordering', resource: RESOURCES.CATEGORY, action: ACTIONS.MANAGE, category: PERMISSION_CATEGORIES.CATEGORY_MANAGEMENT },
+    // Category Management Permissions
+    { name: PERMISSIONS.CATEGORY_READ, displayName: 'View Categories', description: 'View categories and their hierarchy structure', resource: RESOURCES.CATEGORY, action: ACTIONS.READ, category: PERMISSION_CATEGORIES.CATEGORY_MANAGEMENT },
+    { name: PERMISSIONS.CATEGORY_CREATE, displayName: 'Create Categories', description: 'Create new categories and organize content', resource: RESOURCES.CATEGORY, action: ACTIONS.CREATE, category: PERMISSION_CATEGORIES.CATEGORY_MANAGEMENT },
+    { name: PERMISSIONS.CATEGORY_UPDATE, displayName: 'Update Categories', description: 'Edit category details, descriptions, and hierarchy', resource: RESOURCES.CATEGORY, action: ACTIONS.UPDATE, category: PERMISSION_CATEGORIES.CATEGORY_MANAGEMENT },
+    { name: PERMISSIONS.CATEGORY_DELETE, displayName: 'Delete Categories', description: 'Delete categories and manage category lifecycle', resource: RESOURCES.CATEGORY, action: ACTIONS.DELETE, category: PERMISSION_CATEGORIES.CATEGORY_MANAGEMENT },
+    { name: PERMISSIONS.CATEGORY_MANAGE, displayName: 'Manage Categories', description: 'Full category management including moving, ordering, and status changes', resource: RESOURCES.CATEGORY, action: ACTIONS.MANAGE, category: PERMISSION_CATEGORIES.CATEGORY_MANAGEMENT },
   ];
 
   let upserted = 0;
@@ -127,29 +129,37 @@ const createPermissions = async () => {
 
   for (const p of permissions) {
     try {
-      const doc = await Permission.findOneAndUpdate(
-        { name: p.name },
-        {
-          $set: {
+      const existing = await Permission.findOne({ name: p.name });
+      if (existing) {
+        // Update existing permission (non-system fields only)
+        if (!existing.isSystem) {
+          await Permission.findByIdAndUpdate(existing._id, {
             displayName: p.displayName,
             description: p.description,
             resource: p.resource,
             action: p.action,
             category: p.category,
-            isSystem: true,
-            isActive: true,
-          }
-        },
-        { upsert: true, new: true, setDefaultsOnInsert: true }
-      );
-      permissionMap.set(p.name, doc._id);
-      upserted++;
+            isActive: true
+          });
+          upserted++;
+        }
+        permissionMap.set(p.name, existing);
+      } else {
+        // Create new permission
+        const newPermission = await Permission.create({
+          ...p,
+          isSystem: true,
+          isActive: true
+        });
+        permissionMap.set(p.name, newPermission);
+        upserted++;
+      }
     } catch (error) {
-      console.error(`   ❌ Error upserting permission ${p.name}:`, error.message);
+      console.error(`   ❌ Failed to create/update permission ${p.name}:`, error.message);
     }
   }
 
-  console.log(`📋 Permission system ready: ${upserted} upserted`);
+  console.log(`📋 Permission system ready: ${upserted} permissions upserted`);
   return permissionMap;
 };
 
@@ -160,110 +170,99 @@ const createPermissions = async () => {
 const createRoles = async (permissionMap) => {
   console.log('👥 Creating role hierarchy...');
 
-  // Get all permissions for Super Admin
-  const allPermissions = await Permission.find({ isActive: true }).select('_id name');
-  const allPermissionIds = allPermissions.map((p) => p._id);
-
-  // 🌟 SUPER ADMIN - ULTIMATE ACCESS
-  const superAdminPermissions = allPermissionIds;
-
-  // 👔 ADMIN - COMPREHENSIVE MANAGEMENT
-  const adminPermissionNames = [
-    PERMISSIONS.USER_READ, PERMISSIONS.USER_CREATE, PERMISSIONS.USER_UPDATE,
-    PERMISSIONS.USER_DELETE, PERMISSIONS.USER_MANAGE, PERMISSIONS.USER_UNLOCK,
-    PERMISSIONS.ROLE_READ, PERMISSIONS.ROLE_UPDATE, PERMISSIONS.ROLE_MANAGE,
-    PERMISSIONS.PERMISSION_READ,
-    PERMISSIONS.AUDIT_READ, PERMISSIONS.AUDIT_EXPORT,
-    PERMISSIONS.SYSTEM_HEALTH,
-    PERMISSIONS.CATEGORY_READ, PERMISSIONS.CATEGORY_CREATE,
-    PERMISSIONS.CATEGORY_UPDATE, PERMISSIONS.CATEGORY_DELETE,
-    PERMISSIONS.CATEGORY_MANAGE,
-  ];
-
-  // 🛡️ MODERATOR - LIMITED ADMINISTRATIVE ACCESS
-  const moderatorPermissionNames = [
-    PERMISSIONS.USER_READ, PERMISSIONS.USER_UPDATE, PERMISSIONS.USER_UNLOCK,
-    PERMISSIONS.ROLE_READ,
-    PERMISSIONS.PERMISSION_READ,
-    PERMISSIONS.AUDIT_READ,
-    PERMISSIONS.SYSTEM_HEALTH,
-    PERMISSIONS.CATEGORY_READ, PERMISSIONS.CATEGORY_UPDATE, PERMISSIONS.CATEGORY_MANAGE,
-  ];
-
-  // 👤 USER - BASIC ACCESS
-  const userPermissionNames = [];
-
-  const getPermissionIds = (permissionNames) =>
-    permissionNames.map((name) => permissionMap.get(name)).filter((id) => id !== undefined);
-
-  const roles = [
+  const roleDefinitions = [
     {
       name: ROLES.SUPER_ADMIN,
       displayName: 'Super Administrator',
-      description: 'Ultimate system access with all permissions for system administration',
+      description: 'Complete system access with all permissions',
       priority: 100,
-      isSystem: true,
-      isActive: true,
-      permissions: superAdminPermissions,
+      permissions: Array.from(permissionMap.values()).map(p => p._id),
+      isSystem: true
     },
     {
       name: ROLES.ADMIN,
       displayName: 'Administrator',
-      description: 'Comprehensive administrative access for user and system management',
+      description: 'Administrative access with most management permissions',
       priority: 80,
-      isSystem: true,
-      isActive: true,
-      permissions: getPermissionIds(adminPermissionNames),
+      permissions: [
+        PERMISSIONS.USER_READ,
+        PERMISSIONS.USER_CREATE,
+        PERMISSIONS.USER_UPDATE,
+        PERMISSIONS.USER_MANAGE,
+        PERMISSIONS.ROLE_READ,
+        PERMISSIONS.ROLE_CREATE,
+        PERMISSIONS.ROLE_UPDATE,
+        PERMISSIONS.PERMISSION_READ,
+        PERMISSIONS.AUDIT_READ,
+        PERMISSIONS.CATEGORY_READ,
+        PERMISSIONS.CATEGORY_CREATE,
+        PERMISSIONS.CATEGORY_UPDATE,
+        PERMISSIONS.CATEGORY_MANAGE,
+      ].map(pName => permissionMap.get(pName)?._id).filter(Boolean),
+      isSystem: true
     },
     {
       name: ROLES.MODERATOR,
       displayName: 'Moderator',
-      description: 'Limited administrative access for content and user moderation',
+      description: 'Content and user moderation capabilities',
       priority: 60,
-      isSystem: true,
-      isActive: true,
-      permissions: getPermissionIds(moderatorPermissionNames),
+      permissions: [
+        PERMISSIONS.USER_READ,
+        PERMISSIONS.USER_UPDATE,
+        PERMISSIONS.ROLE_READ,
+        PERMISSIONS.PERMISSION_READ,
+        PERMISSIONS.AUDIT_READ,
+        PERMISSIONS.CATEGORY_READ,
+        PERMISSIONS.CATEGORY_CREATE,
+        PERMISSIONS.CATEGORY_UPDATE,
+      ].map(pName => permissionMap.get(pName)?._id).filter(Boolean),
+      isSystem: true
     },
     {
       name: ROLES.USER,
       displayName: 'User',
-      description: 'Standard user access with basic system functionality',
+      description: 'Basic user access with limited permissions',
       priority: 20,
-      isSystem: true,
-      isActive: true,
-      permissions: getPermissionIds(userPermissionNames),
-    },
+      permissions: [
+        PERMISSIONS.CATEGORY_READ,
+      ].map(pName => permissionMap.get(pName)?._id).filter(Boolean),
+      isSystem: true
+    }
   ];
 
-  let upserted = 0;
   const roleMap = new Map();
+  let created = 0;
+  let updated = 0;
 
-  console.log(`   👥 Processing ${roles.length} roles (upsert)...`);
-
-  for (const r of roles) {
+  for (const roleDef of roleDefinitions) {
     try {
-      const doc = await Role.findOneAndUpdate(
-        { name: r.name },
-        {
-          $set: {
-            displayName: r.displayName,
-            description: r.description,
-            priority: r.priority,
-            permissions: r.permissions,
-            isSystem: true,
-            isActive: true,
-          }
-        },
-        { upsert: true, new: true, setDefaultsOnInsert: true }
-      );
-      roleMap.set(r.name, doc._id);
-      upserted++;
+      const existing = await Role.findOne({ name: roleDef.name });
+      
+      if (existing) {
+        // Update existing role (preserve system status)
+        await Role.findByIdAndUpdate(existing._id, {
+          displayName: roleDef.displayName,
+          description: roleDef.description,
+          priority: roleDef.priority,
+          permissions: roleDef.permissions,
+          isActive: true
+        });
+        roleMap.set(roleDef.name, existing);
+        updated++;
+        console.log(`   ✏️  Updated role: ${roleDef.name}`);
+      } else {
+        // Create new role
+        const newRole = await Role.create(roleDef);
+        roleMap.set(roleDef.name, newRole);
+        created++;
+        console.log(`   ➕ Created role: ${roleDef.name}`);
+      }
     } catch (error) {
-      console.error(`   ❌ Error upserting role ${r.name}:`, error.message);
+      console.error(`   ❌ Failed to create/update role ${roleDef.name}:`, error.message);
     }
   }
 
-  console.log(`👥 Role hierarchy ready: ${upserted} upserted`);
+  console.log(`👥 Role hierarchy ready: ${created} created, ${updated} updated`);
   return roleMap;
 };
 
@@ -272,104 +271,71 @@ const createRoles = async (permissionMap) => {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const createDefaultCategories = async () => {
-  console.log('🗂️  Creating default categories...');
+  console.log('🗂️ Creating default categories...');
 
-  const buildDerived = async (parentDoc, slug) => {
-    if (!parentDoc) return { path: [], fullSlug: slug, level: 0 };
-    return {
-      path: [...(parentDoc.path || []), parentDoc._id],
-      fullSlug: `${parentDoc.fullSlug}/${slug}`,
-      level: (parentDoc.level || 0) + 1,
-    };
-  };
-
-  const upsertCategory = async ({ name, slug, description, order = 0, isActive = true }, parentDoc = null) => {
-    const derived = await buildDerived(parentDoc, slug);
-    const filter = { parent: parentDoc ? parentDoc._id : null, slug };
-
-    const update = {
-      $set: {
-        name,
-        slug,
-        description: description || undefined,
-        parent: parentDoc ? parentDoc._id : null,
-        path: derived.path,
-        fullSlug: derived.fullSlug,
-        level: derived.level,
-        order,
-        isActive,
-        isSystem: false,
-      }
-    };
-
-    try {
-      const doc = await Category.findOneAndUpdate(filter, update, {
-        upsert: true, new: true, setDefaultsOnInsert: true
-      });
-      return { doc, created: doc.createdAt && doc.createdAt.getTime() === doc.updatedAt.getTime() };
-    } catch (e) {
-      const existing = await Category.findOne(filter);
-      if (existing) {
-        await Category.updateOne({ _id: existing._id }, update.$set);
-        const doc = await Category.findById(existing._id);
-        return { doc, created: false };
-      }
-      throw e;
-    }
-  };
-
-  const tree = [
+  const categoryDefinitions = [
     {
-      name: 'Electronics', slug: 'electronics', order: 1, children: [
-        {
-          name: 'Phones', slug: 'phones', order: 1, children: [
-            { name: 'Smartphones', slug: 'smartphones', order: 1 },
-            { name: 'Feature Phones', slug: 'feature-phones', order: 2 },
-          ]
-        },
-        {
-          name: 'Computers', slug: 'computers', order: 2, children: [
-            { name: 'Laptops', slug: 'laptops', order: 1 },
-            { name: 'Desktops', slug: 'desktops', order: 2 },
-          ]
-        },
-        { name: 'Accessories', slug: 'accessories', order: 3 }
-      ]
+      name: 'General',
+      slug: 'general',
+      description: 'General purpose category for miscellaneous items',
+      order: 1,
+      isSystem: true
     },
     {
-      name: 'Apparel', slug: 'apparel', order: 2, children: [
-        {
-          name: 'Men', slug: 'men', order: 1, children: [
-            { name: 'Shirts', slug: 'shirts', order: 1 },
-            { name: 'Pants', slug: 'pants', order: 2 },
-          ]
-        },
-        {
-          name: 'Women', slug: 'women', order: 2, children: [
-            { name: 'Dresses', slug: 'dresses', order: 1 },
-            { name: 'Shoes', slug: 'shoes', order: 2 },
-          ]
-        }
-      ]
+      name: 'System',
+      slug: 'system',
+      description: 'System-related categories and configurations',
+      order: 2,
+      isSystem: true
+    },
+    {
+      name: 'Content',
+      slug: 'content',
+      description: 'Content management and organization',
+      order: 3,
+      isSystem: false
     }
   ];
 
   let created = 0;
   let updated = 0;
 
-  const walk = async (nodes, parent = null) => {
-    for (const n of nodes) {
-      const { doc, created: c } = await upsertCategory(n, parent);
-      if (c) created++; else updated++;
-      if (n.children && n.children.length) {
-        await walk(n.children, doc);
+  for (const catDef of categoryDefinitions) {
+    try {
+      const existing = await Category.findOne({ slug: catDef.slug, parent: null });
+      
+      if (existing) {
+        if (!existing.isSystem || catDef.isSystem) {
+          await Category.findByIdAndUpdate(existing._id, {
+            name: catDef.name,
+            description: catDef.description,
+            order: catDef.order,
+            isActive: true,
+            path: [],
+            fullSlug: catDef.slug,
+            level: 0
+          });
+          updated++;
+          console.log(`   ✏️  Updated category: ${catDef.name}`);
+        }
+      } else {
+        await Category.create({
+          ...catDef,
+          parent: null,
+          path: [],
+          fullSlug: catDef.slug,
+          level: 0,
+          isActive: true
+        });
+        created++;
+        console.log(`   ➕ Created category: ${catDef.name}`);
       }
+    } catch (error) {
+      console.error(`   ❌ Failed to create/update category ${catDef.name}:`, error.message);
     }
-  };
+  }
 
-  await walk(tree, null);
-
-  console.log(`   ✅ Categories ready: ${created} created, ${updated} updated`);
+  console.log(`🗂️ Default categories ready: ${created} created, ${updated} updated`);
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -377,37 +343,52 @@ const createDefaultCategories = async () => {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const createSuperAdmin = async (roleMap) => {
-  console.log('👑 Creating super administrator...');
+  console.log('👤 Creating super admin user...');
 
-  const superAdminRoleId = roleMap.get(ROLES.SUPER_ADMIN);
-  if (!superAdminRoleId) throw new Error('Super Admin role not found. Role creation may have failed.');
+  const superAdminRole = roleMap.get(ROLES.SUPER_ADMIN);
+  if (!superAdminRole) {
+    throw new Error('Super Admin role not found');
+  }
 
-  const existing = await User.findOne({ email: ADMIN_EMAIL });
+  try {
+    const existing = await User.findOne({ email: ADMIN_EMAIL });
+    
+    if (existing) {
+      // Update existing super admin
+      await User.findByIdAndUpdate(existing._id, {
+        firstName: 'Super',
+        lastName: 'Admin',
+        roles: [superAdminRole._id],
+        isActive: true,
+        isEmailVerified: true,
+        profile: {
+          language: 'tr',
+          timezone: 'UTC'
+        }
+      });
+      console.log(`   ✏️  Updated super admin: ${ADMIN_EMAIL}`);
+    } else {
+      // Create new super admin
+      await User.create({
+        firstName: 'Super',
+        lastName: 'Admin',
+        email: ADMIN_EMAIL,
+        password: ADMIN_PASSWORD,
+        roles: [superAdminRole._id],
+        isActive: true,
+        isEmailVerified: true,
+        profile: {
+          language: 'tr',
+          timezone: 'UTC'
+        }
+      });
+      console.log(`   ➕ Created super admin: ${ADMIN_EMAIL}`);
+    }
 
-  if (!existing) {
-    const superAdminData = {
-      firstName: 'Super',
-      lastName: 'Administrator',
-      email: ADMIN_EMAIL,
-      password: ADMIN_PASSWORD, // hashed by pre-save
-      roles: [superAdminRoleId],
-      isActive: true,
-      isEmailVerified: true,
-      profile: { timezone: 'Europe/Istanbul', language: 'tr', avatar: null },
-      metadata: { createdBy: null, updatedBy: null, ipAddress: '127.0.0.1', userAgent: 'System Seed Script' },
-    };
-
-    await User.create(superAdminData);
-    console.log('   ✅ Super Administrator created successfully');
-    console.log(`   📧 Email: ${ADMIN_EMAIL}`);
-    console.log(`   🔑 Password: ${ADMIN_PASSWORD}`);
-  } else {
-    await User.findByIdAndUpdate(existing._id, {
-      roles: [superAdminRoleId],
-      isActive: true,
-      isEmailVerified: true,
-    });
-    console.log('   🔄 Super Administrator updated successfully');
+    console.log('👤 Super admin ready');
+  } catch (error) {
+    console.error('❌ Failed to create super admin:', error.message);
+    throw error;
   }
 };
 
@@ -415,69 +396,72 @@ const createTestUsers = async (roleMap) => {
   console.log('👥 Creating test users...');
 
   const testUsers = [
-    // Administrative Users
-    { firstName: 'Admin', lastName: 'Manager', email: 'admin@test.com', password: 'Admin123!', role: ROLES.ADMIN },
-    { firstName: 'System', lastName: 'Administrator', email: 'sysadmin@test.com', password: 'SysAdmin123!', role: ROLES.ADMIN },
-
-    // Moderator Users
-    { firstName: 'Content', lastName: 'Moderator', email: 'moderator@test.com', password: 'Moderator123!', role: ROLES.MODERATOR },
-    { firstName: 'Community', lastName: 'Manager', email: 'community@test.com', password: 'Community123!', role: ROLES.MODERATOR },
-
-    // Standard Users
-    { firstName: 'John', lastName: 'Smith', email: 'john.smith@test.com', password: 'User123!', role: ROLES.USER },
-    { firstName: 'Jane', lastName: 'Doe', email: 'jane.doe@test.com', password: 'User123!', role: ROLES.USER },
-    { firstName: 'Test', lastName: 'User', email: 'test@test.com', password: 'Test123!', role: ROLES.USER },
-
-    // Special Purpose
-    { firstName: 'Demo', lastName: 'Administrator', email: 'demo@admin.com', password: 'Demo123!', role: ROLES.ADMIN },
-    { firstName: 'Guest', lastName: 'Moderator', email: 'guest@moderator.com', password: 'Guest123!', role: ROLES.MODERATOR },
+    {
+      firstName: 'Admin',
+      lastName: 'User',
+      email: 'admin.user@test.com',
+      password: 'Admin123!',
+      role: ROLES.ADMIN
+    },
+    {
+      firstName: 'Moderator',
+      lastName: 'User',
+      email: 'moderator.user@test.com',
+      password: 'Moderator123!',
+      role: ROLES.MODERATOR
+    },
+    {
+      firstName: 'Regular',
+      lastName: 'User',
+      email: 'regular.user@test.com',
+      password: 'User123!',
+      role: ROLES.USER
+    }
   ];
 
-  let createdCount = 0;
-  let updatedCount = 0;
+  let created = 0;
+  let updated = 0;
 
-  console.log(`   👤 Processing ${testUsers.length} test users...`);
-
-  for (const u of testUsers) {
+  for (const userData of testUsers) {
     try {
-      const existing = await User.findOne({ email: u.email });
-      const roleId = roleMap.get(u.role);
-      if (!roleId) {
-        console.error(`   ❌ Role not found for user ${u.email}: ${u.role}`);
+      const role = roleMap.get(userData.role);
+      if (!role) {
+        console.warn(`   ⚠️  Role ${userData.role} not found for user ${userData.email}`);
         continue;
       }
 
-      if (!existing) {
-        const newUser = {
-          firstName: u.firstName,
-          lastName: u.lastName,
-          email: u.email,
-          password: u.password, // hashed by pre-save
-          roles: [roleId],
-          isActive: true,
-          isEmailVerified: true,
-          profile: { timezone: 'Europe/Istanbul', language: 'tr' },
-          metadata: { createdBy: null, updatedBy: null, ipAddress: '127.0.0.1', userAgent: 'System Seed Script' },
-        };
-
-        await User.create(newUser);
-        console.log(`   ✅ Created: ${u.email} (${u.role})`);
-        createdCount++;
-      } else {
+      const existing = await User.findOne({ email: userData.email });
+      
+      if (existing) {
         await User.findByIdAndUpdate(existing._id, {
-          roles: [roleId],
+          firstName: userData.firstName,
+          lastName: userData.lastName,
+          roles: [role._id],
+          isActive: true,
+          isEmailVerified: true
+        });
+        updated++;
+        console.log(`   ✏️  Updated test user: ${userData.email}`);
+      } else {
+        await User.create({
+          ...userData,
+          roles: [role._id],
           isActive: true,
           isEmailVerified: true,
+          profile: {
+            language: 'tr',
+            timezone: 'UTC'
+          }
         });
-        console.log(`   🔄 Updated: ${u.email} (${u.role})`);
-        updatedCount++;
+        created++;
+        console.log(`   ➕ Created test user: ${userData.email}`);
       }
     } catch (error) {
-      console.error(`   ❌ Error creating user ${u.email}:`, error.message);
+      console.error(`   ❌ Failed to create/update test user ${userData.email}:`, error.message);
     }
   }
 
-  console.log(`👥 Test users ready: ${createdCount} created, ${updatedCount} updated`);
+  console.log(`👥 Test users ready: ${created} created, ${updated} updated`);
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -490,134 +474,114 @@ const validateSystemIntegrity = async () => {
   const issues = [];
 
   try {
-    // Permission integrity
-    const permissions = await Permission.find({ isActive: true });
-    const invalidPermissions = permissions.filter((p) => !p.name || !p.resource || !p.action || !p.category);
-    if (invalidPermissions.length > 0) issues.push(`❌ ${invalidPermissions.length} permissions have missing required fields`);
-
-    // Role integrity
-    const roles = await Role.find({ isActive: true }).populate('permissions');
-    for (const role of roles) {
-      const invalidRefs = role.permissions.filter((p) => !p || !p.isActive);
-      if (invalidRefs.length > 0) issues.push(`❌ Role '${role.name}' has ${invalidRefs.length} invalid permission references`);
+    // Check permissions
+    const permissionCount = await Permission.countDocuments({ isActive: true });
+    const expectedPermissions = Object.keys(PERMISSIONS).length;
+    if (permissionCount < expectedPermissions) {
+      issues.push(`Missing permissions: expected ${expectedPermissions}, found ${permissionCount}`);
     }
 
-    // User integrity
-    const users = await User.find({ isActive: true }).populate('roles');
-    for (const user of users) {
-      const invalidRoleRefs = user.roles.filter((r) => !r || !r.isActive);
-      if (invalidRoleRefs.length > 0) issues.push(`❌ User '${user.email}' has ${invalidRoleRefs.length} invalid role references`);
+    // Check roles
+    const roleCount = await Role.countDocuments({ isActive: true });
+    const expectedRoles = Object.keys(ROLES).length;
+    if (roleCount < expectedRoles) {
+      issues.push(`Missing roles: expected ${expectedRoles}, found ${roleCount}`);
+    }
+
+    // Check super admin
+    const superAdminRole = await Role.findOne({ name: ROLES.SUPER_ADMIN });
+    if (!superAdminRole) {
+      issues.push('Super Admin role not found');
+    } else {
+      const superAdminUser = await User.findOne({ roles: superAdminRole._id });
+      if (!superAdminUser) {
+        issues.push('Super Admin user not found');
+      }
+    }
+
+    // Check role permissions
+    for (const roleName of Object.values(ROLES)) {
+      const role = await Role.findOne({ name: roleName }).populate('permissions');
+      if (role && role.permissions.length === 0 && roleName !== ROLES.USER) {
+        issues.push(`Role ${roleName} has no permissions assigned`);
+      }
     }
 
     if (issues.length === 0) {
-      console.log('   ✅ System integrity validation passed');
+      console.log('✅ System integrity validated successfully');
     } else {
-      console.log('   ⚠️ System integrity issues found:');
-      issues.forEach((i) => console.log(`     ${i}`));
+      console.warn('⚠️  System integrity issues found:');
+      issues.forEach(issue => console.warn(`   - ${issue}`));
     }
 
-    return issues.length === 0;
+    return { valid: issues.length === 0, issues };
   } catch (error) {
-    console.error('   ❌ Error during integrity validation:', error.message);
-    return false;
+    console.error('❌ System validation failed:', error.message);
+    return { valid: false, issues: [error.message] };
   }
 };
 
 const generateSystemReport = async () => {
+  console.log('\n📊 Generating system report...');
+
   try {
-    const [permissionCount, roleCount, userCount, categoryCount, rootCount] = await Promise.all([
-      Permission.countDocuments({ isActive: true }),
-      Role.countDocuments({ isActive: true }),
-      User.countDocuments({ isActive: true }),
-      Category.countDocuments({}),
-      Category.countDocuments({ parent: null }),
+    const [
+      userStats,
+      roleStats,
+      permissionStats,
+      categoryStats
+    ] = await Promise.all([
+      User.aggregate([
+        { $group: { _id: '$isActive', count: { $sum: 1 } } },
+        { $project: { status: { $cond: ['$_id', 'active', 'inactive'] }, count: 1, _id: 0 } }
+      ]),
+      Role.aggregate([
+        { $group: { _id: '$isActive', count: { $sum: 1 } } },
+        { $project: { status: { $cond: ['$_id', 'active', 'inactive'] }, count: 1, _id: 0 } }
+      ]),
+      Permission.aggregate([
+        { $group: { _id: '$category', count: { $sum: 1 } } },
+        { $sort: { count: -1 } }
+      ]),
+      Category.aggregate([
+        { $group: { _id: '$level', count: { $sum: 1 } } },
+        { $sort: { _id: 1 } }
+      ])
     ]);
 
-    const allPermissions = await Permission.find({ isActive: true }).select('name displayName category').lean();
-    const roleDetails = await Role.find({ isActive: true })
-      .populate('permissions', 'name')
-      .select('name displayName permissions priority')
-      .sort({ priority: -1 })
-      .lean();
-
-    const usersByRole = await User.aggregate([
-      { $match: { isActive: true } },
-      { $unwind: '$roles' },
-      { $lookup: { from: 'roles', localField: 'roles', foreignField: '_id', as: 'roleData' } },
-      { $unwind: '$roleData' },
-      { $group: { _id: '$roleData.name', count: { $sum: 1 } } },
-      { $sort: { count: -1 } },
-    ]);
-
-    console.log('\n🎉 ADMIN PANEL SYSTEM READY! 🎉\n');
+    console.log('\n═══════════════════════════════════════════════════════════════');
+    console.log('📈 ADMIN PANEL SYSTEM REPORT');
     console.log('═══════════════════════════════════════════════════════════════');
-    console.log('📊 SYSTEM OVERVIEW');
-    console.log('═══════════════════════════════════════════════════════════════');
-    console.log(`   📋 Active Permissions: ${permissionCount}`);
-    console.log(`   👥 Active Roles      : ${roleCount}`);
-    console.log(`   👤 Active Users      : ${userCount}`);
-    console.log(`   🗂️  Categories       : ${categoryCount} (roots: ${rootCount})\n`);
 
-    console.log('🔐 AUTHENTICATION CREDENTIALS');
-    console.log('═══════════════════════════════════════════════════════════════');
-    console.log(`   🌟 Super Admin    : ${ADMIN_EMAIL} / ${ADMIN_PASSWORD}`);
-    console.log('   👔 Admin User     : admin@test.com / Admin123!');
-    console.log('   🏢 System Admin   : sysadmin@test.com / SysAdmin123!');
-    console.log('   🛡️  Moderator     : moderator@test.com / Moderator123!');
-    console.log('   🤝 Community Mgr  : community@test.com / Community123!');
-    console.log('   👤 John Smith     : john.smith@test.com / User123!');
-    console.log('   👤 Jane Doe       : jane.doe@test.com / User123!');
-    console.log('   🧪 Test User      : test@test.com / Test123!');
-    console.log('   🎪 Demo Admin     : demo@admin.com / Demo123!');
-    console.log('   👻 Guest Moderator: guest@moderator.com / Guest123!\n');
+    console.log('\n👥 USERS:');
+    userStats.forEach(stat => console.log(`   ${stat.status}: ${stat.count}`));
 
-    console.log('👥 ROLE HIERARCHY & PERMISSIONS');
-    console.log('═══════════════════════════════════════════════════════════════');
-    roleDetails.forEach((role) => {
-      console.log(`   ${role.displayName} (${role.name}): ${role.permissions.length} permissions`);
-    });
+    console.log('\n🛡️  ROLES:');
+    roleStats.forEach(stat => console.log(`   ${stat.status}: ${stat.count}`));
 
-    if (usersByRole.length > 0) {
-      console.log('\n📈 USER DISTRIBUTION');
-      console.log('═══════════════════════════════════════════════════════════════');
-      usersByRole.forEach((stat) => console.log(`   ${stat._id}: ${stat.count} users`));
-    }
+    console.log('\n🔑 PERMISSIONS BY CATEGORY:');
+    permissionStats.forEach(stat => console.log(`   ${stat._id}: ${stat.count}`));
 
-    console.log('\n🚀 SYSTEM FEATURES');
-    console.log('═══════════════════════════════════════════════════════════════');
-    console.log('   ✅ Role-Based Access Control (RBAC)');
-    console.log('   ✅ JWT Authentication with Refresh Tokens');
-    console.log('   ✅ Comprehensive Audit Logging');
-    console.log('   ✅ Rate Limiting & Security Middleware');
-    console.log('   ✅ Multi-language Support (TR/EN/DE)');
-    console.log('   ✅ Error Handling');
-    console.log('   ✅ MongoDB with Optimized Indexes');
-    console.log('   ✅ Input Validation & Sanitization');
-    console.log('   ✅ Session Management & Security');
-    console.log('   ✅ API Documentation');
-    console.log('   ✅ Category Module (Hierarchy, move, status, ordering)');
+    console.log('\n🗂️ CATEGORIES BY LEVEL:');
+    categoryStats.forEach(stat => console.log(`   Level ${stat._id}: ${stat.count}`));
 
-    console.log('\n📋 PERMISSION CATEGORIES');
-    console.log('═══════════════════════════════════════════════════════════════');
-    const categories = Object.values(PERMISSION_CATEGORIES);
-    categories.forEach((category) => {
-      const categoryPermissions = allPermissions.filter((p) => p.category === category);
-      console.log(`   📁 ${category}: ${categoryPermissions.length} permissions`);
-    });
+    const totalUsers = await User.countDocuments();
+    const totalRoles = await Role.countDocuments();
+    const totalPermissions = await Permission.countDocuments();
+    const totalCategories = await Category.countDocuments();
 
-    console.log('\n🎯 NEXT STEPS');
-    console.log('═══════════════════════════════════════════════════════════════');
-    console.log('   1. 🌐 Start your application: npm start');
-    console.log('   2. 🔑 Login with super admin credentials');
-    console.log('   3. 🧪 Test different user roles and permissions');
-    console.log('   4. 🗂️  Explore category tree endpoints');
-    console.log('   5. 📊 Check audit logs for activity tracking');
-    console.log('   6. 🛡️  Configure additional security settings');
+    console.log('\n📊 TOTALS:');
+    console.log(`   Users: ${totalUsers}`);
+    console.log(`   Roles: ${totalRoles}`);
+    console.log(`   Permissions: ${totalPermissions}`);
+    console.log(`   Categories: ${totalCategories}`);
 
-    console.log('\n✅ ADMIN PANEL IS READY! 🎊');
+    console.log('\n═══════════════════════════════════════════════════════════════');
+    console.log('✅ System seeding completed successfully!');
     console.log('═══════════════════════════════════════════════════════════════\n');
+
   } catch (error) {
-    console.error('❌ Error generating system report:', error.message);
+    console.error('❌ Failed to generate system report:', error.message);
   }
 };
 
@@ -626,81 +590,70 @@ const generateSystemReport = async () => {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const safeExit = async (code) => {
-  try { await mongoose.disconnect(); } catch (_) { }
-  process.exit(code);
+  try {
+    if (mongoose.connection.readyState === 1) {
+      await mongoose.connection.close();
+      console.log('💾 Database connection closed');
+    }
+  } catch (error) {
+    console.error('❌ Error closing database connection:', error.message);
+  } finally {
+    process.exit(code);
+  }
 };
 
 const seedData = async (options = {}) => {
-  const startTime = Date.now();
+  const {
+    clearData = false,
+    preserveSystemData = true,
+    preserveSuperAdmin = true,
+    createTestData = true,
+    validateIntegrity = true
+  } = options;
+
+  console.log('🌱 Starting admin panel data seeding...');
+  console.log(`📋 Options: clearData=${clearData}, preserveSystemData=${preserveSystemData}, createTestData=${createTestData}`);
 
   try {
-    console.log('🚀 STARTING ADMIN PANEL SEED PROCESS...\n');
-    console.log('═══════════════════════════════════════════════════════════════');
-
-    // Step 1: Database Connection
+    // 1. Database Connection
     await connectDB();
 
-    // Step 2: Optional Data Cleanup
-    if (options.clearData !== false) {
-      await clearExistingData({
-        preserveSystemData: options.preserveSystemData !== false,
-        preserveSuperAdmin: options.preserveSuperAdmin !== false,
-      });
+    // 2. Clear existing data if requested
+    if (clearData) {
+      await clearExistingData({ preserveSystemData, preserveSuperAdmin });
     }
 
-    // Step 3: Create Permission System
-    console.log('\n🔑 PHASE 1: PERMISSION SYSTEM');
-    console.log('───────────────────────────────────────────────────────────────');
+    // 3. Create permissions (foundation)
     const permissionMap = await createPermissions();
 
-    // Step 4: Create Role Hierarchy
-    console.log('\n👥 PHASE 2: ROLE HIERARCHY');
-    console.log('───────────────────────────────────────────────────────────────');
+    // 4. Create roles (depends on permissions)
     const roleMap = await createRoles(permissionMap);
 
-    // Step 5: Create Super Administrator
-    console.log('\n👑 PHASE 3: SUPER ADMINISTRATOR');
-    console.log('───────────────────────────────────────────────────────────────');
-    await createSuperAdmin(roleMap);
-
-    // Step 6: Create Test Users
-    console.log('\n👤 PHASE 4: TEST USERS');
-    console.log('───────────────────────────────────────────────────────────────');
-    await createTestUsers(roleMap);
-
-    // Step 7: Default Categories
-    console.log('\n🗂️  PHASE 5: DEFAULT CATEGORIES');
-    console.log('───────────────────────────────────────────────────────────────');
+    // 5. Create default categories
     await createDefaultCategories();
 
-    // Step 8: System Validation
-    console.log('\n🔍 PHASE 6: VALIDATION');
-    console.log('───────────────────────────────────────────────────────────────');
-    const isValid = await validateSystemIntegrity();
-    if (!isValid) {
-      console.warn('⚠️ System validation found issues, but seeding completed');
+    // 6. Create super admin user
+    await createSuperAdmin(roleMap);
+
+    // 7. Create test users if requested
+    if (createTestData) {
+      await createTestUsers(roleMap);
     }
 
-    // Step 9: Generate Report
-    console.log('\n📊 PHASE 7: REPORTING');
-    console.log('───────────────────────────────────────────────────────────────');
+    // 8. Validate system integrity
+    if (validateIntegrity) {
+      await validateSystemIntegrity();
+    }
+
+    // 9. Generate final report
     await generateSystemReport();
 
-    const duration = ((Date.now() - startTime) / 1000).toFixed(2);
-    console.log(`🏁 SEEDING COMPLETED SUCCESSFULLY IN ${duration}s! 🏁`);
+    return { success: true, message: 'Seeding completed successfully' };
 
-    await safeExit(0);
   } catch (error) {
-    console.error('\n💥 CRITICAL SEEDING ERROR:', error);
-    console.error('Stack trace:', error.stack);
-
-    console.log('\n🔧 TROUBLESHOOTING TIPS:');
-    console.log('   1. Check MongoDB connection');
-    console.log('   2. Verify environment variables');
-    console.log('   3. Ensure proper permissions');
-    console.log('   4. Check for existing data conflicts');
-
-    await safeExit(1);
+    console.error('💥 Fatal error during seeding:', error.message);
+    console.error(error.stack);
+    return { success: false, message: error.message };
   }
 };
 
@@ -711,13 +664,22 @@ const seedData = async (options = {}) => {
 if (require.main === module) {
   const args = process.argv.slice(2);
   const options = {
-    clearData: !args.includes('--no-clear'),
-    preserveSystemData: !args.includes('--force-clear'),
-    preserveSuperAdmin: !args.includes('--reset-admin'),
+    clearData: args.includes('--clear') || args.includes('-c'),
+    preserveSystemData: !args.includes('--clear-all'),
+    preserveSuperAdmin: !args.includes('--clear-all'),
+    createTestData: !args.includes('--no-test-data'),
+    validateIntegrity: !args.includes('--no-validate')
   };
 
-  console.log('🎛️  Seeding Options:', options);
-  seedData(options);
+  seedData(options)
+    .then(result => {
+      console.log(result.success ? '✅ Seeding completed!' : `❌ Seeding failed: ${result.message}`);
+      safeExit(result.success ? 0 : 1);
+    })
+    .catch(error => {
+      console.error('💥 Unhandled error:', error.message);
+      safeExit(1);
+    });
 }
 
 module.exports = {

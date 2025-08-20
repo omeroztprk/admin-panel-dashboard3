@@ -1,9 +1,10 @@
 const User = require('../models/User');
+const RefreshToken = require('../models/RefreshToken');
 const { generateAccessToken, generateRefreshToken } = require('../config/jwt');
 const { resolveLanguage } = require('../config/i18n');
 const tokenService = require('./tokenService');
 const { ERRORS } = require('../utils/constants');
-const { normalizeEmail } = require('../utils/helpers');
+const { normalizeEmail, hashPassword, sleep } = require('../utils/helpers');
 
 const register = async (userData) => {
   const { firstName, lastName, email, password, profile, ipAddress, userAgent } = userData;
@@ -51,8 +52,6 @@ const register = async (userData) => {
     }
   ]);
 
-  user.password = undefined;
-
   return {
     user,
     accessToken,
@@ -65,11 +64,13 @@ const login = async (credentials) => {
   const normalizedEmail = normalizeEmail(email);
 
   const user = await User.findOne({ email: normalizedEmail }).select('+password');
-  if (!user) throw new Error(ERRORS.AUTH.INVALID_CREDENTIALS);
+  if (!user) {
+    await sleep(100 + Math.floor(Math.random() * 200));
+    throw new Error(ERRORS.AUTH.INVALID_CREDENTIALS);
+  }
 
   if (user.isLocked) {
-    const ms = Math.max(0, (user.lockoutUntil?.getTime?.() || 0) - Date.now());
-    const retryAfterSec = Math.max(1, Math.ceil(ms / 1000));
+    const retryAfterSec = Math.max(1, Math.ceil(((user.lockoutUntil?.getTime?.() || 0) - Date.now()) / 1000));
     const err = new Error(ERRORS.AUTH.ACCOUNT_LOCKED);
     err.code = 'ACCOUNT_LOCKED';
     err.status = 423;
@@ -78,11 +79,14 @@ const login = async (credentials) => {
     throw err;
   }
 
-  if (!user.isActive) throw new Error(ERRORS.AUTH.ACCOUNT_INACTIVE);
+  if (!user.isActive) {
+    throw new Error(ERRORS.AUTH.ACCOUNT_INACTIVE);
+  }
 
   const isPasswordValid = await user.comparePassword(password);
   if (!isPasswordValid) {
     await user.incLoginAttempts();
+    await sleep(100 + Math.floor(Math.random() * 200));
     throw new Error(ERRORS.AUTH.INVALID_CREDENTIALS);
   }
 
@@ -117,8 +121,6 @@ const login = async (credentials) => {
       select: 'name displayName resource action description category isActive'
     }
   ]);
-
-  user.password = undefined;
 
   return {
     user,
@@ -155,15 +157,20 @@ const getMe = async (userId) => {
     }
   ]);
 
-  if (!user) throw new Error(ERRORS.USER.NOT_FOUND);
+  if (!user) {
+    throw new Error(ERRORS.USER.NOT_FOUND);
+  }
   return user;
 };
 
 const updateProfile = async (userId, updates) => {
   const allowedFields = ['firstName', 'lastName', 'profile'];
   const filteredUpdates = {};
-  allowedFields.forEach((f) => {
-    if (updates[f] !== undefined) filteredUpdates[f] = updates[f];
+  
+  allowedFields.forEach((field) => {
+    if (updates[field] !== undefined) {
+      filteredUpdates[field] = updates[field];
+    }
   });
 
   if (filteredUpdates.profile?.language) {
@@ -189,30 +196,26 @@ const updateProfile = async (userId, updates) => {
     }
   ]);
 
-  if (!user) throw new Error(ERRORS.USER.NOT_FOUND);
+  if (!user) {
+    throw new Error(ERRORS.USER.NOT_FOUND);
+  }
   return user;
 };
 
 const changePassword = async (userId, currentPassword, newPassword) => {
   const user = await User.findById(userId).select('+password');
   if (!user) {
-    const err = new Error(ERRORS.USER.NOT_FOUND);
-    err.statusCode = 404;
-    throw err;
+    throw new Error(ERRORS.USER.NOT_FOUND);
   }
 
   const isCurrentPasswordValid = await user.comparePassword(currentPassword);
   if (!isCurrentPasswordValid) {
-    const err = new Error(ERRORS.AUTH.INVALID_CURRENT_PASSWORD);
-    err.statusCode = 400;
-    throw err;
+    throw new Error(ERRORS.AUTH.INVALID_CURRENT_PASSWORD);
   }
 
   const isSameAsCurrent = await user.comparePassword(newPassword);
   if (isSameAsCurrent) {
-    const err = new Error(ERRORS.VALIDATION.PASSWORDS_SAME);
-    err.statusCode = 400;
-    throw err;
+    throw new Error(ERRORS.VALIDATION.PASSWORDS_SAME);
   }
 
   user.password = newPassword;
@@ -224,18 +227,25 @@ const changePassword = async (userId, currentPassword, newPassword) => {
 };
 
 const getActiveSessions = async (userId) => {
-  const sessions = await tokenService.getUserActiveSessions(userId);
-  return sessions.map((s) => ({
-    id: s._id,
-    deviceInfo: s.deviceInfo,
-    lastUsed: s.lastUsed,
-    createdAt: s.createdAt,
-    expiresAt: s.expiresAt
+  const sessions = await RefreshToken.find({
+    user: userId,
+    isBlacklisted: false,
+    expiresAt: { $gt: new Date() }
+  }).sort({ createdAt: -1 });
+
+  return sessions.map((session) => ({
+    id: session._id,
+    deviceInfo: session.deviceInfo,
+    lastUsed: session.lastUsed,
+    createdAt: session.createdAt,
+    expiresAt: session.expiresAt
   }));
 };
 
 const revokeSession = async (userId, tokenId) => {
-  await tokenService.revokeSession(userId, tokenId);
+  const token = await RefreshToken.findOne({ _id: tokenId, user: userId });
+  if (!token) throw new Error(ERRORS.AUTH.INVALID_SESSION);
+  await token.blacklist();
   return true;
 };
 

@@ -11,11 +11,8 @@ const AuditLog = require('../models/AuditLog');
 const sendRateLimited = (req, res, messageKey) => {
   applyLangHeaders(res);
 
-  const lng =
-    (req.getLanguage && req.getLanguage()) ||
-    detectLanguage(req) ||
-    config.i18n.defaultLanguage;
-
+  const lng = detectLanguage(req) || config.i18n.defaultLanguage;
+  
   const rt = req.rateLimit?.resetTime;
   let retryAfterSec;
   if (rt instanceof Date) retryAfterSec = Math.max(1, Math.ceil((rt.getTime() - Date.now()) / 1000));
@@ -32,12 +29,11 @@ const sendRateLimited = (req, res, messageKey) => {
 
   let message;
   try {
-    message = (req.t
+    message = req.t 
       ? req.t(resolvedKey, { minute, seconds: remain })
-      : globalT(resolvedKey, { lng, minute, seconds: remain })
-    );
+      : globalT(resolvedKey, { lng, minute, seconds: remain });
   } catch {
-    message = resolvedKey;
+    message = `Too many requests. Please try again in ${minute}m ${remain}s`;
   }
 
   try {
@@ -67,7 +63,6 @@ const sendRateLimited = (req, res, messageKey) => {
       userAgent: req.get('User-Agent'),
       ipAddress: ip,
       severity: url.includes('/auth/') ? 'high' : 'medium',
-      tags: ['rate_limit', ...(url.includes('/auth/') ? ['authentication'] : [])],
       requestData: { query: req.query, params: req.params }
     });
   } catch { }
@@ -147,36 +142,30 @@ const buildAuthLoginIpLimiter = () =>
 const createCustomRateLimit = (windowMs, max, messageKey, keyGen) =>
   createRateLimiter({ windowMs, max, messageKey, keyGenerator: keyGen });
 
-const _limiterCache = new Map();
 
 const limiter = (name) => {
-  if (_limiterCache.has(name)) return _limiterCache.get(name);
-
-  let inst;
   switch (name) {
     case 'auth:register':
-      inst = buildAuthRateLimiter();
-      break;
+      return buildAuthRateLimiter();
     case 'auth:login:ip':
-      inst = buildAuthLoginIpLimiter();
-      break;
+      return buildAuthLoginIpLimiter();
     case 'auth:refresh':
-      inst = createCustomRateLimit(60 * 1000, 30, ERRORS.GENERAL.RATE_LIMIT_DYNAMIC, (req) => getClientIP(req));
-      break;
+      return createCustomRateLimit(
+        60 * 1000,
+        30,
+        ERRORS.GENERAL.RATE_LIMIT_DYNAMIC,
+        (req) => `refresh:${getClientIP(req)}`
+      );
     case 'audit:export':
-      inst = createCustomRateLimit(
+      return createCustomRateLimit(
         config.audit.exportRate.windowMs,
         config.audit.exportRate.max,
         ERRORS.GENERAL.RATE_LIMIT_DYNAMIC,
-        (req) => (req.user?._id?.toString() || getClientIP(req))
+        (req) => `export:${req.user?._id?.toString() || getClientIP(req)}`
       );
-      break;
     default:
       throw new Error(`Unknown limiter name: ${name}`);
   }
-
-  _limiterCache.set(name, inst);
-  return inst;
 };
 
 module.exports = {

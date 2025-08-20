@@ -33,6 +33,7 @@ const userSchema = new mongoose.Schema({
 
   roles: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Role' }],
   permissions: [{
+    _id: false,
     permission: { type: mongoose.Schema.Types.ObjectId, ref: 'Permission' },
     granted: { type: Boolean, default: true },
   }],
@@ -122,6 +123,11 @@ userSchema.methods.resetLoginAttempts = async function () {
 };
 
 userSchema.methods.getAllPermissions = async function () {
+  if (this._permissionsCache && this._permissionsCacheTime && 
+      (Date.now() - this._permissionsCacheTime) < 5 * 60 * 1000) {
+    return this._permissionsCache;
+  }
+
   await this.populate([
     {
       path: 'roles',
@@ -134,19 +140,41 @@ userSchema.methods.getAllPermissions = async function () {
   ]);
 
   const permissionMap = new Map();
+
   (this.roles || []).forEach((role) => {
     (role.permissions || []).forEach((perm) => {
       if (perm?.isActive) permissionMap.set(perm._id.toString(), perm);
     });
   });
+
   (this.permissions || []).forEach((p) => {
-    if (p.granted && p.permission?.isActive) {
-      permissionMap.set(p.permission._id.toString(), p.permission);
+    const key = p?.permission?._id?.toString?.();
+    if (!key || !p.permission?.isActive) return;
+    if (p.granted === true) {
+      permissionMap.set(key, p.permission);
+    } else if (p.granted === false) {
+      permissionMap.delete(key);
     }
   });
 
-  return Array.from(permissionMap.values());
+  const result = Array.from(permissionMap.values());
+  
+  this._permissionsCache = result;
+  this._permissionsCacheTime = Date.now();
+
+  return result;
 };
+
+userSchema.methods.clearPermissionsCache = function() {
+  this._permissionsCache = null;
+  this._permissionsCacheTime = null;
+};
+
+userSchema.pre('save', function() {
+  if (this.isModified('roles') || this.isModified('permissions')) {
+    this.clearPermissionsCache();
+  }
+});
 
 userSchema.methods.hasPermission = async function (resource, action, useCache = true) {
   const cacheKey = `user_${this._id}_perm_${resource}_${action}`;

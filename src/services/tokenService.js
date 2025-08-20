@@ -57,7 +57,6 @@ const refreshAccessToken = async (refreshTokenDoc, refreshTokenPlain) => {
     await refreshTokenDoc.save();
 
     const accessToken = await generateAccessToken({ userId: decoded.userId });
-
     const newRefreshTokenValue = await generateRefreshToken({ userId: decoded.userId });
 
     await refreshTokenDoc.blacklist();
@@ -91,28 +90,9 @@ const blacklistAllUserTokens = async (userId) => {
   return true;
 };
 
-const getUserActiveSessions = async (userId) => {
-  const sessions = await RefreshToken.find({
-    user: userId,
-    isBlacklisted: false,
-    expiresAt: { $gt: new Date() }
-  }).sort({ createdAt: -1 });
-
-  return sessions;
-};
-
-const revokeSession = async (userId, tokenId) => {
-  const token = await RefreshToken.findOne({ _id: tokenId, user: userId });
-  if (!token) throw new Error(ERRORS.AUTH.INVALID_SESSION);
-  await token.blacklist();
-  return true;
-};
-
 module.exports = {
   saveRefreshToken,
   refreshAccessToken,
   blacklistRefreshToken,
-  blacklistAllUserTokens,
-  getUserActiveSessions,
-  revokeSession,
+  blacklistAllUserTokens
 };

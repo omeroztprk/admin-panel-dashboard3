@@ -16,6 +16,13 @@ const buildCorsConfig = () => {
   };
 };
 
+const validateJwtSecret = (secret, name) => {
+  if (!secret) return `${name} is required`;
+  if (secret.length < 32) return `${name} must be at least 32 characters`;
+  if (secret === 'default' || secret === 'change-me') return `${name} must be changed from default`;
+  return null;
+};
+
 const config = {
   env: process.env.NODE_ENV || 'development',
   port: parseNumber(process.env.PORT, 5001),
@@ -87,14 +94,14 @@ const config = {
   }
 };
 
-const missingEnvVars = [
-  ...(process.env.MONGODB_URI ? [] : ['MONGODB_URI']),
-  ...(process.env.JWT_ACCESS_SECRET ? [] : ['JWT_ACCESS_SECRET']),
-  ...(process.env.JWT_REFRESH_SECRET ? [] : ['JWT_REFRESH_SECRET']),
-];
+const validationErrors = [
+  ...(process.env.MONGODB_URI ? [] : ['MONGODB_URI is required']),
+  validateJwtSecret(process.env.JWT_ACCESS_SECRET, 'JWT_ACCESS_SECRET'),
+  validateJwtSecret(process.env.JWT_REFRESH_SECRET, 'JWT_REFRESH_SECRET'),
+].filter(Boolean);
 
-if (missingEnvVars.length > 0) {
-  console.error('Missing required environment variables:', missingEnvVars.join(', '));
+if (validationErrors.length > 0) {
+  console.error('Configuration errors:', validationErrors.join(', '));
   process.exit(1);
 }
 

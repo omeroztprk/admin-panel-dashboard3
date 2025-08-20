@@ -1,6 +1,8 @@
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 const config = require('../config');
 const { prefixKey } = require('../config/redis');
+const { ERRORS } = require('./constants');
 
 const hashPassword = async (password) => {
   if (!password || typeof password !== 'string') throw new Error('Password must be a non-empty string');
@@ -15,6 +17,10 @@ const comparePassword = async (password, hash) => {
 
 const sanitizeObject = (obj, fieldsToRemove = ['password', '__v']) => {
   if (!obj || typeof obj !== 'object') return obj;
+
+  if (!Array.isArray(fieldsToRemove)) {
+    fieldsToRemove = ['password', '__v'];
+  }
 
   if (Array.isArray(obj)) return obj.map((item) => sanitizeObject(item, fieldsToRemove));
 
@@ -40,8 +46,10 @@ const sanitizeObject = (obj, fieldsToRemove = ['password', '__v']) => {
   return sanitized;
 };
 
-const normalizeEmail = (email) =>
-  (typeof email === 'string' ? email.trim().toLowerCase() : '');
+const normalizeEmail = (email) => {
+  if (!email || typeof email !== 'string') return '';
+  return email.trim().toLowerCase();
+};
 
 const escapeRegex = (str) =>
   String(str || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -49,26 +57,51 @@ const escapeRegex = (str) =>
 const isValidObjectId = (v) =>
   /^[0-9a-fA-F]{24}$/.test(String(v || ''));
 
-const toBool = (v, d) =>
-  (typeof v === 'boolean' ? v : typeof v === 'string' ? v === 'true' : d);
+const toInt = (v, defaultValue = 0, { min, max } = {}) => {
+  const n = parseInt(v, 10);
+  if (Number.isNaN(n)) return defaultValue;
+  
+  if (typeof min === 'number' && n < min) return min;
+  if (typeof max === 'number' && n > max) return max;
+  
+  return n;
+};
+
+const toBool = (v, defaultValue = false) => {
+  if (typeof v === 'boolean') return v;
+  if (typeof v === 'string') {
+    const lower = v.toLowerCase().trim();
+    if (['true', '1', 'yes', 'on'].includes(lower)) return true;
+    if (['false', '0', 'no', 'off'].includes(lower)) return false;
+  }
+  if (typeof v === 'number') return v !== 0;
+  return defaultValue;
+};
 
 const normalizeIp = (ip) => {
   if (!ip || typeof ip !== 'string') return null;
+  
   let v = ip.trim();
-
-  // [::1] -> ::1
-  if (v.startsWith('[') && v.includes(']')) v = v.slice(1, v.indexOf(']'));
-  // fe80::1%lo0 -> fe80::1
+  
+  // IPv6 bracket removal
+  if (v.startsWith('[') && v.includes(']')) {
+    v = v.slice(1, v.indexOf(']'));
+  }
+  
+  // Zone ID removal (%...suffix)
   v = v.replace(/%.+$/, '');
-  // 1.2.3.4:5678 -> 1.2.3.4
-  if (/^\d{1,3}(\.\d{1,3}){3}:\d+$/.test(v)) v = v.split(':')[0];
-  // ::1 -> 127.0.0.1
+  
+  // Port removal (only for IPv4:port format)
+  if (/^\d{1,3}(\.\d{1,3}){3}:\d+$/.test(v)) {
+    v = v.split(':')[0];
+  }
+  
+  // IPv6 to IPv4 mapping
   if (v === '::1') return '127.0.0.1';
-  // ::ffff:1.2.3.4 -> 1.2.3.4
   const mapped = v.match(/^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/i);
   if (mapped) return mapped[1];
 
-  return v;
+  return /^(\d{1,3}\.){3}\d{1,3}$|^([0-9a-f]{0,4}:){2,7}[0-9a-f]{0,4}$/i.test(v) ? v : null;
 };
 
 const buildLoginAttemptsKey = (email, ip) => {
@@ -169,22 +202,22 @@ const sleep = (ms) => {
   return new Promise((resolve) => setTimeout(resolve, ms));
 };
 
-const toInt = (v, d) => {
-  const n = parseInt(v, 10);
-  return Number.isNaN(n) ? d : n;
+const createTokenHash = (token) => {
+  return crypto.createHash('sha256').update(String(token)).digest('hex');
 };
 
 module.exports = {
   hashPassword,
   comparePassword,
   sanitizeObject,
+  normalizeEmail,
   buildLoginAttemptsKey,
   getClientIP,
   parseUserAgent,
   sleep,
   toInt,
   isValidObjectId,
-  normalizeEmail,
   escapeRegex,
   toBool,
+  createTokenHash
 };

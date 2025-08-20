@@ -1,223 +1,303 @@
 const Category = require('../models/Category');
 const { ERRORS } = require('../utils/constants');
-const { isValidObjectId, escapeRegex } = require('../utils/helpers');
 
-const buildDerived = async (parentId, slug) => {
-  if (!parentId) return { path: [], fullSlug: slug, level: 0 };
-
-  const parent = await Category.findById(parentId).select('path fullSlug level');
-  if (!parent) throw new Error(ERRORS.CATEGORY.INVALID_PARENT);
-
-  return {
-    path: [...(parent.path || []), parent._id],
-    fullSlug: `${parent.fullSlug}/${slug}`,
-    level: (parent.level || 0) + 1,
-  };
-};
-
-const checkCircular = (parentId, selfId) => {
-  if (!parentId || !selfId) return false;
-  return String(parentId) === String(selfId);
-};
-
-const getCategories = async (options = {}) => {
-  const {
-    page = 1, limit = 20, sort = 'order', search, isActive, parent, level
-  } = options;
-
-  const query = {};
-  if (search && search.trim()) {
-    const re = new RegExp(escapeRegex(search.trim()), 'i');
-    query.$or = [{ name: { $regex: re } }, { description: { $regex: re } }];
-  }
-  if (typeof isActive === 'boolean') query.isActive = isActive;
-  if (parent === null) query.parent = null;
-  else if (parent && isValidObjectId(parent)) query.parent = parent;
-  if (level !== undefined && Number.isFinite(+level)) query.level = +level;
-
+const getCategories = async (filters = {}, options = {}) => {
+  const { page = 1, limit = 20, sort = 'order' } = options;
   const skip = (page - 1) * limit;
-  const categories = await Category.find(query)
+
+  const categories = await Category.find(filters)
     .populate('parent', 'name slug fullSlug')
+    .populate('metadata.createdBy', 'firstName lastName')
+    .populate('metadata.updatedBy', 'firstName lastName')
     .sort(sort)
     .skip(skip)
     .limit(limit)
     .lean();
 
-  const total = await Category.countDocuments(query);
+  const total = await Category.countDocuments(filters);
 
   return {
     categories,
-    pagination: { page, limit, total, pages: Math.ceil(total / limit) }
+    pagination: {
+      currentPage: page,
+      totalPages: Math.ceil(total / limit),
+      totalItems: total,
+      itemsPerPage: limit,
+      hasNextPage: page < Math.ceil(total / limit),
+      hasPrevPage: page > 1
+    }
   };
 };
 
-const getCategoryById = async (id) => {
-  if (!isValidObjectId(id)) return null;
-  return Category.findById(id)
-    .populate('parent', 'name slug fullSlug')
+const getTree = async (filters = {}, options = {}) => {
+  const { maxDepth } = options;
+
+  const categories = await Category.find(filters)
+    .sort({ order: 1, name: 1 })
     .lean();
+
+  const categoryMap = new Map();
+  const rootCategories = [];
+
+  categories.forEach((cat) => {
+    categoryMap.set(String(cat._id), { ...cat, children: [] });
+  });
+
+  categories.forEach((cat) => {
+    const categoryNode = categoryMap.get(String(cat._id));
+    if (cat.parent) {
+      const parentNode = categoryMap.get(String(cat.parent));
+      if (parentNode) {
+        parentNode.children.push(categoryNode);
+      }
+    } else {
+      rootCategories.push(categoryNode);
+    }
+  });
+
+  if (maxDepth !== undefined && Number.isFinite(+maxDepth)) {
+    const trimDepth = (node, depth = 0) => {
+      if (depth >= +maxDepth) {
+        node.children = [];
+        return;
+      }
+      node.children.forEach((child) => trimDepth(child, depth + 1));
+    };
+    rootCategories.forEach((root) => trimDepth(root, 0));
+  }
+
+  return rootCategories;
 };
 
-const createCategory = async (data) => {
-  const { name, slug, parent, ...rest } = data;
+const getCategoryById = async (categoryId) => {
+  const category = await Category.findById(categoryId)
+    .populate('parent', 'name slug fullSlug')
+    .populate('metadata.createdBy', 'firstName lastName')
+    .populate('metadata.updatedBy', 'firstName lastName');
 
-  if (checkCircular(parent, null)) throw new Error(ERRORS.CATEGORY.INVALID_PARENT);
+  if (!category) {
+    throw new Error(ERRORS.CATEGORY.NOT_FOUND);
+  }
 
-  const derived = await buildDerived(parent || null, slug);
+  return category;
+};
 
-  const doc = new Category({
+const createCategory = async (categoryData) => {
+  const { name, slug, parent, ...otherData } = categoryData;
+
+  if (parent && String(parent) !== 'null') {
+    const parentDoc = await Category.findById(parent);
+    if (!parentDoc) {
+      throw new Error(ERRORS.CATEGORY.INVALID_PARENT);
+    }
+  }
+
+  let derivedFields;
+  if (!parent || String(parent) === 'null') {
+    derivedFields = { path: [], fullSlug: slug, level: 0 };
+  } else {
+    const parentDoc = await Category.findById(parent).select('path fullSlug level');
+    if (!parentDoc) {
+      throw new Error(ERRORS.CATEGORY.INVALID_PARENT);
+    }
+
+    derivedFields = {
+      path: [...(parentDoc.path || []), parentDoc._id],
+      fullSlug: `${parentDoc.fullSlug}/${slug}`,
+      level: (parentDoc.level || 0) + 1
+    };
+  }
+
+  const category = new Category({
     name,
     slug,
     parent: parent || null,
-    ...derived,
-    ...rest,
+    ...derivedFields,
+    ...otherData
   });
 
   try {
-    await doc.save();
-  } catch (e) {
-    const msg = String(e?.message || '');
-    if (msg.includes('E11000') && msg.includes('index') && msg.includes('parent_1_slug_1')) {
-      throw new Error(ERRORS.CATEGORY.SLUG_EXISTS);
+    await category.save();
+  } catch (error) {
+    if (error.code === 11000) {
+      if (error.message.includes('parent_1_slug_1')) {
+        throw new Error(ERRORS.CATEGORY.SLUG_EXISTS);
+      }
+      if (error.message.includes('parent_1_name_1')) {
+        throw new Error(ERRORS.CATEGORY.NAME_EXISTS);
+      }
     }
-    if (msg.includes('E11000') && msg.includes('index') && msg.includes('parent_1_name_1')) {
-      throw new Error(ERRORS.CATEGORY.NAME_EXISTS);
-    }
-    throw e;
+    throw error;
   }
 
-  return getCategoryById(doc._id);
+  return getCategoryById(category._id);
 };
 
-const updateCategory = async (id, updates) => {
-  const existing = await Category.findById(id);
-  if (!existing) throw new Error(ERRORS.CATEGORY.NOT_FOUND);
-  if (existing.isSystem) throw new Error(ERRORS.CATEGORY.SYSTEM_CATEGORY_MODIFICATION);
-
-  const next = { ...updates };
-  delete next._id; delete next.__v;
-
-  let parentChanged = false;
-  let slugChanged = false;
-
-  if (Object.prototype.hasOwnProperty.call(next, 'parent')) {
-    const newParent = next.parent || null;
-    if (checkCircular(newParent, id)) throw new Error(ERRORS.CATEGORY.INVALID_PARENT);
-    parentChanged = String(existing.parent || '') !== String(newParent || '');
+const updateCategory = async (categoryId, updates) => {
+  const existingCategory = await Category.findById(categoryId);
+  if (!existingCategory) {
+    throw new Error(ERRORS.CATEGORY.NOT_FOUND);
   }
 
-  if (next.slug && next.slug !== existing.slug) slugChanged = true;
+  if (existingCategory.isSystem) {
+    throw new Error(ERRORS.CATEGORY.SYSTEM_CATEGORY_MODIFICATION);
+  }
+
+  const finalUpdates = { ...updates };
+  delete finalUpdates._id;
+  delete finalUpdates.__v;
+
+  const parentChanged = Object.prototype.hasOwnProperty.call(finalUpdates, 'parent') &&
+    String(finalUpdates.parent || '') !== String(existingCategory.parent || '');
+  const slugChanged = finalUpdates.slug && finalUpdates.slug !== existingCategory.slug;
 
   if (parentChanged || slugChanged) {
-    const effectiveParent = (next.parent !== undefined) ? (next.parent || null) : (existing.parent || null);
-    const effectiveSlug = next.slug || existing.slug;
+    const effectiveParent = (finalUpdates.parent !== undefined) ? (finalUpdates.parent || null) : (existingCategory.parent || null);
+    const effectiveSlug = finalUpdates.slug || existingCategory.slug;
 
     if (effectiveParent) {
-      const parentDoc = await Category.findById(effectiveParent).select('_id path');
-      if (!parentDoc) throw new Error(ERRORS.CATEGORY.INVALID_PARENT);
+      if (String(effectiveParent) === String(categoryId)) {
+        throw new Error(ERRORS.CATEGORY.CIRCULAR_PARENT);
+      }
+
+      const parentDoc = await Category.findById(effectiveParent).select('path');
+      if (!parentDoc) {
+        throw new Error(ERRORS.CATEGORY.INVALID_PARENT);
+      }
+
       const parentPathIds = [...(parentDoc.path || []), parentDoc._id].map(String);
-      if (parentPathIds.includes(String(id))) throw new Error(ERRORS.CATEGORY.CIRCULAR_PARENT);
+      if (parentPathIds.includes(String(categoryId))) {
+        throw new Error(ERRORS.CATEGORY.CIRCULAR_PARENT);
+      }
     }
 
-    const derived = await buildDerived(effectiveParent, effectiveSlug);
-    next.path = derived.path;
-    next.fullSlug = derived.fullSlug;
-    next.level = derived.level;
+    let derivedFields;
+    if (!effectiveParent) {
+      derivedFields = { path: [], fullSlug: effectiveSlug, level: 0 };
+    } else {
+      const parentDoc = await Category.findById(effectiveParent).select('path fullSlug level');
+      derivedFields = {
+        path: [...(parentDoc.path || []), parentDoc._id],
+        fullSlug: `${parentDoc.fullSlug}/${effectiveSlug}`,
+        level: (parentDoc.level || 0) + 1
+      };
+    }
+
+    Object.assign(finalUpdates, derivedFields);
   }
 
+  finalUpdates.metadata = {
+    ...existingCategory.metadata,
+    ...finalUpdates.metadata,
+    updatedAt: new Date()
+  };
+
   try {
-    await Category.findByIdAndUpdate(id, next, { new: true, runValidators: true });
-  } catch (e) {
-    const msg = String(e?.message || '');
-    if (msg.includes('E11000') && msg.includes('parent_1_slug_1')) throw new Error(ERRORS.CATEGORY.SLUG_EXISTS);
-    if (msg.includes('E11000') && msg.includes('parent_1_name_1')) throw new Error(ERRORS.CATEGORY.NAME_EXISTS);
-    throw e;
+    await Category.findByIdAndUpdate(categoryId, finalUpdates, { new: true, runValidators: true });
+  } catch (error) {
+    if (error.code === 11000) {
+      if (error.message.includes('parent_1_slug_1')) {
+        throw new Error(ERRORS.CATEGORY.SLUG_EXISTS);
+      }
+      if (error.message.includes('parent_1_name_1')) {
+        throw new Error(ERRORS.CATEGORY.NAME_EXISTS);
+      }
+    }
+    throw error;
   }
 
   if (parentChanged || slugChanged) {
-    const self = await Category.findById(id).select('fullSlug path level');
-    const children = await Category.find({ path: id }).select('_id parent slug path fullSlug level');
+    await updateChildrenHierarchy(categoryId, existingCategory.fullSlug);
+  }
 
-    if (children.length) {
-      const bulk = [];
-      for (const child of children) {
-        const idx = child.path.map(String).indexOf(String(id));
-        const tail = idx >= 0 ? child.path.slice(idx + 1) : [];
-        const newPath = [...self.path, self._id, ...tail];
+  return getCategoryById(categoryId);
+};
 
-        const oldPrefix = existing.fullSlug;
-        const newPrefix = self.fullSlug;
-        const newFullSlug = child.fullSlug.replace(new RegExp(`^${oldPrefix}`), newPrefix);
+const updateChildrenHierarchy = async (categoryId, oldFullSlug) => {
+  const self = await Category.findById(categoryId).select('fullSlug path level');
+  const children = await Category.find({ path: categoryId }).select('_id path fullSlug');
 
-        bulk.push({
-          updateOne: {
-            filter: { _id: child._id },
-            update: {
-              $set: {
-                path: newPath,
-                fullSlug: newFullSlug,
-                level: newPath.length
-              }
+  if (children.length > 0) {
+    const bulkOps = children.map((child) => {
+      const pathIndex = child.path.map(String).indexOf(String(categoryId));
+      const newPath = pathIndex >= 0
+        ? [...self.path, self._id, ...child.path.slice(pathIndex + 1)]
+        : child.path;
+
+      const newFullSlug = child.fullSlug.replace(new RegExp(`^${oldFullSlug}`), self.fullSlug);
+
+      return {
+        updateOne: {
+          filter: { _id: child._id },
+          update: {
+            $set: {
+              path: newPath,
+              fullSlug: newFullSlug,
+              level: newPath.length
             }
           }
-        });
-      }
-      if (bulk.length) await Category.bulkWrite(bulk);
-    }
-  }
+        }
+      };
+    });
 
-  return getCategoryById(id);
+    await Category.bulkWrite(bulkOps);
+  }
 };
 
-const toggleCategoryStatus = async (id, isActive, { cascade = false } = {}) => {
-  const cat = await Category.findById(id);
-  if (!cat) throw new Error(ERRORS.CATEGORY.NOT_FOUND);
-  if (cat.isSystem) throw new Error(ERRORS.CATEGORY.SYSTEM_CATEGORY_MODIFICATION);
+const toggleCategoryStatus = async (categoryId, isActive, options = {}) => {
+  const { cascade = false, actorId } = options;
 
-  cat.isActive = !!isActive;
-  await cat.save();
+  const category = await Category.findById(categoryId);
+  if (!category) {
+    throw new Error(ERRORS.CATEGORY.NOT_FOUND);
+  }
+
+  if (category.isSystem) {
+    throw new Error(ERRORS.CATEGORY.SYSTEM_CATEGORY_MODIFICATION);
+  }
+
+  const updates = {
+    isActive: !!isActive,
+    metadata: {
+      ...category.metadata,
+      updatedBy: actorId,
+      updatedAt: new Date()
+    }
+  };
+
+  await Category.findByIdAndUpdate(categoryId, updates, { new: true, runValidators: true });
 
   if (cascade) {
-    await Category.updateMany({ path: id }, { $set: { isActive: !!isActive } });
+    await Category.updateMany(
+      { path: categoryId },
+      { $set: { isActive: !!isActive } }
+    );
   }
-  return getCategoryById(id);
+
+  return getCategoryById(categoryId);
 };
 
-const moveCategory = async (id, newParentId) => {
-  return updateCategory(id, { parent: newParentId || null });
+const moveCategory = async (categoryId, newParentId) => {
+  return updateCategory(categoryId, { parent: newParentId || null });
 };
 
-const deleteCategory = async (id) => {
-  const cat = await Category.findById(id);
-  if (!cat) throw new Error(ERRORS.CATEGORY.NOT_FOUND);
-  await cat.deleteOne();
+const deleteCategory = async (categoryId) => {
+  const category = await Category.findById(categoryId);
+  if (!category) {
+    throw new Error(ERRORS.CATEGORY.NOT_FOUND);
+  }
+
+  if (category.isSystem) {
+    throw new Error(ERRORS.CATEGORY.SYSTEM_CATEGORY_DELETE);
+  }
+
+  const childCount = await Category.countDocuments({ parent: categoryId });
+  if (childCount > 0) {
+    throw new Error(ERRORS.CATEGORY.HAS_CHILDREN);
+  }
+
+  await Category.findByIdAndDelete(categoryId);
   return true;
-};
-
-const getTree = async ({ isActive, maxDepth } = {}) => {
-  const q = {};
-  if (typeof isActive === 'boolean') q.isActive = isActive;
-  const all = await Category.find(q).sort({ order: 1, name: 1 }).lean();
-
-  const byId = new Map(all.map(c => [String(c._id), { ...c, children: [] }]));
-  const roots = [];
-
-  for (const c of byId.values()) {
-    if (c.parent) {
-      const p = byId.get(String(c.parent));
-      if (p) p.children.push(c);
-    } else roots.push(c);
-  }
-
-  if (Number.isFinite(maxDepth)) {
-    const trim = (node, depth = 0) => {
-      if (depth >= maxDepth) { node.children = []; return; }
-      node.children.forEach(n => trim(n, depth + 1));
-    };
-    roots.forEach(r => trim(r, 0));
-  }
-
-  return roots;
 };
 
 module.exports = {
@@ -225,8 +305,8 @@ module.exports = {
   getCategoryById,
   createCategory,
   updateCategory,
+  deleteCategory,
   toggleCategoryStatus,
   moveCategory,
-  deleteCategory,
-  getTree,
+  getTree
 };

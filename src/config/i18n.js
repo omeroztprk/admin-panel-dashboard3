@@ -85,11 +85,14 @@ const createRequestTranslator = (req) => {
   return (key, options = {}) => {
     try {
       const preferred = options.lng || detectLanguage(req);
+      const resolvedLng = resolveLanguage(preferred);
+
       if (req.i18n?.t) {
-        const res = req.i18n.t(key, { ...options, lng: resolveLanguage(preferred) });
-        if (res) return res;
+        const result = req.i18n.t(key, { ...options, lng: resolvedLng });
+        if (result && result !== key) return result;
       }
-      return t(key, { ...options, lng: resolveLanguage(preferred) });
+
+      return t(key, { ...options, lng: resolvedLng });
     } catch (error) {
       if (config.i18n.debug) console.error('Request translation error:', error);
       return key;
@@ -100,10 +103,6 @@ const createRequestTranslator = (req) => {
 const addTranslationHelper = (req, res, next) => {
   req.t = createRequestTranslator(req);
   req.getLanguage = () => detectLanguage(req);
-  req.translate = (key, options = {}) => {
-    const lng = resolveLanguage(options.lng || req.getLanguage());
-    return t(key, { ...options, lng });
-  };
   next();
 };
 

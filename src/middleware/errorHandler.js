@@ -22,13 +22,17 @@ const maskSensitive = (obj = {}) => {
 };
 
 const globalErrorHandler = async (err, req, res, _next) => {
+  const translatedMessage = req.t ? req.t(err.message || ERRORS.GENERAL.INTERNAL_ERROR) : (err.message || 'Internal Server Error');
+  
   logger.error('Error', {
-    message: err.message,
+    message: translatedMessage,
+    originalKey: err.message,
     stack: err.stack,
     url: req.originalUrl,
     method: req.method,
     ip: getClientIP(req),
-    user: req.user?._id
+    user: req.user?._id,
+    statusCode: err.statusCode || 500
   });
 
   try {
@@ -41,7 +45,7 @@ const globalErrorHandler = async (err, req, res, _next) => {
       statusCode: err.statusCode || 500,
       userAgent: req.get('User-Agent'),
       ipAddress: getClientIP(req),
-      errorMessage: err.message,
+      errorMessage: translatedMessage,
       severity: (err.statusCode || 500) >= 500 ? 'critical' : 'medium',
       requestData: {
         query: maskSensitive(req.query),
@@ -51,6 +55,10 @@ const globalErrorHandler = async (err, req, res, _next) => {
     });
   } catch (auditError) {
     logger.error('Failed to create audit log', auditError);
+  }
+
+  if (res.headersSent) {
+    return;
   }
 
   if (err.name === 'CastError') {
@@ -81,8 +89,7 @@ const globalErrorHandler = async (err, req, res, _next) => {
   }
 
   const statusCode = err.statusCode || 500;
-  const message = req.t ? req.t(err.message || ERRORS.GENERAL.INTERNAL_ERROR) : (err.message || 'Internal Server Error');
-  return response.error(res, message, statusCode);
+  return response.error(res, translatedMessage, statusCode);
 };
 
 const notFound = (req, _res, next) => {

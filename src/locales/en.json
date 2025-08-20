@@ -43,7 +43,8 @@
       "category_name_length": "Category name must be between 2 and 100 characters",
       "slug_required": "Slug is required",
       "slug_format": "Slug can only contain lowercase letters, numbers, and hyphens",
-      "order_range": "Order must be between 0 and 10000"
+      "order_range": "Order must be between 0 and 10000",
+      "date_range_too_large": "Date range is too large. Maximum allowed range is {{days}} days"
     },
     "auth": {
       "invalid_credentials": "Invalid email or password",

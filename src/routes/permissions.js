@@ -3,8 +3,9 @@ const permissionController = require('../controllers/permissionController');
 const { authenticate } = require('../middleware/auth');
 const { hasPermission } = require('../middleware/rbac');
 const { validateObjectId, validateRequest } = require('../middleware/validation');
+const { logUserAction } = require('../middleware/audit');
 const permissionValidators = require('../validators/permissionValidators');
-const { PERMISSIONS } = require('../utils/constants');
+const { PERMISSIONS, ACTIONS, RESOURCES, SEVERITY } = require('../utils/constants');
 
 const router = express.Router();
 
@@ -47,6 +48,7 @@ router.post('/',
   hasPermission(PERMISSIONS.PERMISSION_CREATE),
   permissionValidators.createPermission,
   validateRequest,
+  logUserAction(ACTIONS.CREATE, RESOURCES.PERMISSION, SEVERITY.HIGH),
   permissionController.createPermission
 );
 
@@ -55,12 +57,14 @@ router.patch('/:id',
   hasPermission(PERMISSIONS.PERMISSION_UPDATE),
   permissionValidators.updatePermission,
   validateRequest,
+  logUserAction(ACTIONS.UPDATE, RESOURCES.PERMISSION, SEVERITY.HIGH),
   permissionController.updatePermission
 );
 
 router.delete('/:id',
   validateObjectId(),
   hasPermission(PERMISSIONS.PERMISSION_DELETE),
+  logUserAction(ACTIONS.DELETE, RESOURCES.PERMISSION, SEVERITY.CRITICAL),
   permissionController.deletePermission
 );
 
@@ -69,6 +73,7 @@ router.patch('/:id/status',
   hasPermission(PERMISSIONS.PERMISSION_MANAGE),
   permissionValidators.toggleStatus,
   validateRequest,
+  logUserAction(ACTIONS.TOGGLE, RESOURCES.PERMISSION, SEVERITY.HIGH),
   permissionController.togglePermissionStatus
 );
 

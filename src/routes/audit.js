@@ -4,8 +4,9 @@ const { authenticate } = require('../middleware/auth');
 const { hasPermission } = require('../middleware/rbac');
 const { validateObjectId, validateRequest } = require('../middleware/validation');
 const { limiter } = require('../middleware/security');
+const { logUserAction } = require('../middleware/audit');
 const auditValidators = require('../validators/auditValidators');
-const { PERMISSIONS } = require('../utils/constants');
+const { PERMISSIONS, ACTIONS, RESOURCES, SEVERITY } = require('../utils/constants');
 
 const router = express.Router();
 
@@ -33,15 +34,17 @@ router.get('/security/login-attempts',
 );
 
 router.get('/system/health',
-  hasPermission(PERMISSIONS.SYSTEM_HEALTH),
+  hasPermission(PERMISSIONS.AUDIT_READ),
+  logUserAction(ACTIONS.HEALTH, RESOURCES.AUDIT, SEVERITY.LOW),
   auditController.getSystemHealth
 );
 
 router.get('/export/logs',
-  hasPermission(PERMISSIONS.AUDIT_EXPORT),
+  hasPermission(PERMISSIONS.AUDIT_READ),
   limiter('audit:export'),
   auditValidators.getExportLogsQuery,
   validateRequest,
+  logUserAction(ACTIONS.EXPORT, RESOURCES.AUDIT, SEVERITY.HIGH),
   auditController.exportAuditLogs
 );
 

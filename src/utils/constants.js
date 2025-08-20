@@ -14,6 +14,7 @@ const ERRORS = {
     REQUIRED_FIELDS: 'errors.validation.required_fields',
     PASSWORD_MIN_LENGTH: 'errors.validation.password_min_length',
     DUPLICATE_VALUE: 'errors.validation.duplicate_value',
+    DATE_RANGE_TOO_LARGE: 'errors.validation.date_range_too_large'
   },
   AUTH: {
     INVALID_CREDENTIALS: 'errors.auth.invalid_credentials',
@@ -37,6 +38,8 @@ const ERRORS = {
   USER: {
     NOT_FOUND: 'errors.user.not_found',
     EMAIL_EXISTS: 'errors.user.email_exists',
+    ALREADY_UNLOCKED: 'errors.user.already_unlocked',
+    CANNOT_DELETE_SELF: 'errors.user.cannot_delete_self',
   },
   ROLE: {
     NOT_FOUND: 'errors.role.not_found',
@@ -131,13 +134,20 @@ const ROLES = {
   USER: 'user',
 };
 
+const PERMISSION_CATEGORIES = {
+  USER_MANAGEMENT: 'user_management',
+  ROLE_MANAGEMENT: 'role_management',
+  PERMISSION_MANAGEMENT: 'permission_management',
+  AUDIT_MANAGEMENT: 'audit_management',
+  CATEGORY_MANAGEMENT: 'category_management'
+};
+
 const PERMISSIONS = {
   USER_READ: 'user:read',
   USER_CREATE: 'user:create',
   USER_UPDATE: 'user:update',
   USER_DELETE: 'user:delete',
   USER_MANAGE: 'user:manage',
-  USER_UNLOCK: 'user:unlock',
 
   ROLE_READ: 'role:read',
   ROLE_CREATE: 'role:create',
@@ -152,8 +162,6 @@ const PERMISSIONS = {
   PERMISSION_MANAGE: 'permission:manage',
 
   AUDIT_READ: 'audit:read',
-  AUDIT_EXPORT: 'audit:export',
-  SYSTEM_HEALTH: 'system:health',
 
   CATEGORY_READ: 'category:read',
   CATEGORY_CREATE: 'category:create',
@@ -162,22 +170,13 @@ const PERMISSIONS = {
   CATEGORY_MANAGE: 'category:manage',
 };
 
-const PERMISSION_CATEGORIES = {
-  USER_MANAGEMENT: 'User Management',
-  ROLE_MANAGEMENT: 'Role Management',
-  PERMISSION_MANAGEMENT: 'Permission Management',
-  AUDIT_MANAGEMENT: 'Audit Management',
-  SYSTEM_MANAGEMENT: 'System Management',
-  CATEGORY_MANAGEMENT: 'Category Management',
-};
-
 const RESOURCES = {
+  AUTH: 'auth',
   USER: 'user',
   ROLE: 'role',
   PERMISSION: 'permission',
   AUDIT: 'audit',
-  SYSTEM: 'system',
-  CATEGORY: 'category',
+  CATEGORY: 'category'
 };
 
 const ACTIONS = {
@@ -186,17 +185,52 @@ const ACTIONS = {
   UPDATE: 'update',
   DELETE: 'delete',
   MANAGE: 'manage',
+
+  LOGIN: 'login',
+  LOGOUT: 'logout',
+  REGISTER: 'register',
+  REFRESH: 'refresh',
+
+  ASSIGN: 'assign',
+  REMOVE: 'remove',
+  TOGGLE: 'toggle',
   UNLOCK: 'unlock',
+  MOVE: 'move',
+
   EXPORT: 'export',
-  HEALTH: 'health',
+  HEALTH: 'health'
+};
+
+const SEVERITY = {
+  LOW: 'low',
+  MEDIUM: 'medium',
+  HIGH: 'high',
+  CRITICAL: 'critical'
+};
+
+const HTTP_STATUS = {
+  OK: 200,
+  CREATED: 201,
+  NO_CONTENT: 204,
+  BAD_REQUEST: 400,
+  UNAUTHORIZED: 401,
+  FORBIDDEN: 403,
+  NOT_FOUND: 404,
+  CONFLICT: 409,
+  LOCKED: 423,
+  TOO_MANY_REQUESTS: 429,
+  INTERNAL_SERVER_ERROR: 500,
+  SERVICE_UNAVAILABLE: 503,
 };
 
 module.exports = {
   MESSAGES,
   ERRORS,
   ROLES,
-  PERMISSIONS,
   PERMISSION_CATEGORIES,
+  PERMISSIONS,
   RESOURCES,
   ACTIONS,
+  SEVERITY,
+  HTTP_STATUS,
 };

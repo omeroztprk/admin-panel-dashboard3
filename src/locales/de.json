@@ -43,7 +43,8 @@
       "category_name_length": "Kategorie muss zwischen 2 und 100 Zeichen lang sein",
       "slug_required": "Slug ist erforderlich",
       "slug_format": "Slug kann nur Kleinbuchstaben, Zahlen und Bindestriche enthalten",
-      "order_range": "Die Reihenfolge muss zwischen 0 und 10000 liegen"
+      "order_range": "Die Reihenfolge muss zwischen 0 und 10000 liegen",
+      "date_range_too_large": "Datumsbereich ist zu groß. Maximal erlaubter Bereich ist {{days}} Tage"
     },
     "auth": {
       "invalid_credentials": "Ungültige E-Mail oder Passwort",
