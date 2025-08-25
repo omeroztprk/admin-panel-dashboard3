@@ -1,0 +1,330 @@
+<div class="role-detail-container">
+  <!-- Header -->
+  <div class="header">
+    <div class="breadcrumb">
+      <button class="btn-link" (click)="goBack()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="15,18 9,12 15,6"></polyline>
+        </svg>
+        Roller
+      </button>
+      <span class="separator">/</span>
+      <span>Rol Detayı</span>
+    </div>
+
+    <div class="actions" *ngIf="role">
+      <button *ngIf="canUpdate && !role.isSystem" class="btn btn-secondary" (click)="editRole()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+        </svg>
+        Düzenle
+      </button>
+
+      <button *ngIf="canManage && !role.isSystem" class="btn btn-outline" (click)="toggleRoleStatus()"
+        [class.btn-success]="!role.isActive" [class.btn-warning]="role.isActive">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+          <circle cx="12" cy="16" r="1"></circle>
+          <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+        </svg>
+        {{ role.isActive ? 'Pasifleştir' : 'Aktifleştir' }}
+      </button>
+
+      <div class="dropdown" *ngIf="canManage && !role.isSystem">
+        <button class="btn btn-outline" (click)="toggleDropdown()">
+          Diğer İşlemler
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="6,9 12,15 18,9"></polyline>
+          </svg>
+        </button>
+        <div class="dropdown-menu" *ngIf="showDropdown">
+          <button class="dropdown-item" (click)="assignPermissions(); closeDropdown()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="8" x2="12" y2="16"></line>
+              <line x1="8" y1="12" x2="16" y2="12"></line>
+            </svg>
+            İzin Ata
+          </button>
+          <button class="dropdown-item" (click)="removePermissions(); closeDropdown()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="15" y1="9" x2="9" y2="15"></line>
+              <line x1="9" y1="9" x2="15" y2="15"></line>
+            </svg>
+            İzin Kaldır
+          </button>
+          <hr class="dropdown-divider" *ngIf="canDelete">
+          <button *ngIf="canDelete" class="dropdown-item danger" (click)="deleteRole(); closeDropdown()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="3,6 5,6 21,6"></polyline>
+              <path d="M19,6v14a2,2 0 0,1 -2,2H7a2,2 0 0,1 -2,-2V6m3,0V4a2,2 0 0,1 2,-2h4a2,2 0 0,1 2,2v2"></path>
+            </svg>
+            Rolü Sil
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Error Message -->
+  <div *ngIf="error" class="alert alert-error" role="alert">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="12" r="10"></circle>
+      <line x1="15" y1="9" x2="9" y2="15"></line>
+      <line x1="9" y1="9" x2="15" y2="15"></line>
+    </svg>
+    {{ error }}
+  </div>
+
+  <!-- Loading -->
+  <div *ngIf="loading" class="loading-container">
+    <div class="spinner"></div>
+    <span>Rol bilgileri yükleniyor...</span>
+  </div>
+
+  <!-- Role Details -->
+  <div *ngIf="!loading && role" class="content">
+    <!-- Basic Info Card -->
+    <div class="info-card">
+      <div class="card-header">
+        <h2>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path>
+          </svg>
+          Temel Bilgiler
+        </h2>
+      </div>
+      <div class="card-body">
+        <div class="role-header">
+          <div class="role-icon large">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path>
+            </svg>
+          </div>
+          <div class="role-info">
+            <h3>{{ role.displayName || role.name }}</h3>
+            <p *ngIf="role.displayName && role.name !== role.displayName" class="role-name">{{ role.name }}</p>
+            <div class="role-badges">
+              <span class="status-badge" [class]="getStatusClass()">
+                {{ getRoleStatus() }}
+              </span>
+              <span class="role-type-badge" [class]="getRoleTypeClass()">
+                {{ getRoleType() }}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div class="details-grid">
+          <div class="detail-item">
+            <label>Rol ID</label>
+            <span>{{ role._id }}</span>
+          </div>
+
+          <div class="detail-item">
+            <label>Öncelik</label>
+            <span class="priority-value">{{ role.priority }}</span>
+          </div>
+
+          <div class="detail-item">
+            <label>Açıklama</label>
+            <span *ngIf="role.description">{{ role.description }}</span>
+            <span *ngIf="!role.description" class="text-muted">Açıklama bulunmuyor</span>
+          </div>
+
+          <div class="detail-item">
+            <label>İzin Sayısı</label>
+            <span>{{ (role.permissions && role.permissions.length) || 0 }} izin</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Permissions Card -->
+    <div class="info-card">
+      <div class="card-header">
+        <h3>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+            <circle cx="12" cy="16" r="1"></circle>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+          </svg>
+          İzinler ({{ (role.permissions && role.permissions.length) || 0 }})
+        </h3>
+      </div>
+      <div class="card-body">
+        <div *ngIf="role.permissions && role.permissions.length > 0">
+          <div *ngFor="let categoryGroup of getPermissionsByCategory()" class="permission-category">
+            <h4 class="category-title">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2l5 2h9a2 2 0 0 1 2 2z"/>
+              </svg>
+              {{ formatCategory(categoryGroup.category) }} 
+              <span class="permission-count">({{ categoryGroup.permissions.length }})</span>
+            </h4>
+            <div class="permissions-grid">
+              <div *ngFor="let permission of categoryGroup.permissions; trackBy: trackByPermissionId"
+                class="permission-item">
+                <div class="permission-icon">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                    <circle cx="12" cy="16" r="1"></circle>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                  </svg>
+                </div>
+                <div class="permission-content">
+                  <div class="permission-header">
+                    <strong class="permission-title">{{ permission.displayName || permission.name }}</strong>
+                    <span class="permission-resource">{{ permission.resource }}:{{ permission.action }}</span>
+                  </div>
+                  <p *ngIf="permission.description" class="permission-description">
+                    {{ permission.description }}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div *ngIf="!role.permissions || role.permissions.length === 0" class="empty-state">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+            <circle cx="12" cy="16" r="1"></circle>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+          </svg>
+          <h4>İzin bulunmuyor</h4>
+          <p>Bu role henüz hiç izin atanmamış.</p>
+          <button *ngIf="canManage && !role.isSystem" class="btn btn-primary" (click)="assignPermissions()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+            </svg>
+            İzin Düzenle
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Role Users Card -->
+    <div class="info-card">
+      <div class="card-header">
+        <h3>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+            <circle cx="9" cy="7" r="4"></circle>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+          </svg>
+          Bu Role Sahip Kullanıcılar
+          <div *ngIf="usersLoading" class="spinner small"></div>
+        </h3>
+      </div>
+      <div class="card-body">
+        <div *ngIf="!usersLoading && roleUsers.length > 0">
+          <div class="users-grid">
+            <div *ngFor="let user of roleUsers; trackBy: trackByUserId" class="user-item" (click)="viewUser(user)">
+              <div class="user-avatar">
+                {{ getUserInitials(user) }}
+              </div>
+              <div class="user-info">
+                <strong>{{ user.firstName }} {{ user.lastName }}</strong>
+                <p class="user-email">{{ user.email }}</p>
+                <span class="user-status" [class]="getUserStatusClass(user)">
+                  {{ getUserStatus(user) }}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Users Pagination -->
+          <nav *ngIf="usersTotalPages > 1" class="pagination-container small" role="navigation" aria-label="Kullanıcılar Sayfalama">
+            <div class="pagination-info">
+              {{ usersTotalItems }} kullanıcıdan {{ (usersCurrentPage - 1) * usersItemsPerPage + 1 }}-{{ 
+                Math.min(usersCurrentPage * usersItemsPerPage, usersTotalItems) 
+              }} arası gösteriliyor
+            </div>
+            
+            <div class="pagination" role="group">
+              <button 
+                class="btn btn-outline" 
+                [disabled]="usersCurrentPage === 1"
+                (click)="onUsersPageChange(usersCurrentPage - 1)"
+                aria-label="Önceki sayfa">
+                Önceki
+              </button>
+              
+              <ng-container *ngFor="let page of getUsersPageNumbers(); let i = index">
+                <button 
+                  class="btn"
+                  [class.btn-primary]="page === usersCurrentPage"
+                  [class.btn-outline]="page !== usersCurrentPage"
+                  (click)="onUsersPageChange(page)"
+                  [attr.aria-label]="'Sayfa ' + page"
+                  [attr.aria-current]="page === usersCurrentPage ? 'page' : null">
+                  {{ page }}
+                </button>
+              </ng-container>
+              
+              <button 
+                class="btn btn-outline" 
+                [disabled]="usersCurrentPage === usersTotalPages"
+                (click)="onUsersPageChange(usersCurrentPage + 1)"
+                aria-label="Sonraki sayfa">
+                Sonraki
+              </button>
+            </div>
+          </nav>
+        </div>
+
+        <div *ngIf="!usersLoading && roleUsers.length === 0" class="empty-state">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+            <circle cx="9" cy="7" r="4"></circle>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+          </svg>
+          <h4>Kullanıcı bulunmuyor</h4>
+          <p>Bu role sahip kullanıcı bulunmuyor.</p>
+        </div>
+
+        <div *ngIf="usersLoading" class="loading-users">
+          <div class="spinner"></div>
+          <span>Kullanıcılar yükleniyor...</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Metadata Card -->
+    <div class="info-card">
+      <div class="card-header">
+        <h3>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          </svg>
+          Sistem Bilgileri
+        </h3>
+      </div>
+      <div class="card-body">
+        <div class="details-grid">
+          <div *ngFor="let info of getMetadataInfo()" class="detail-item">
+            <label>{{ info.label }}</label>
+            <span [class]="info.class || ''">{{ info.value }}</span>
+          </div>
+
+          <div class="detail-item" *ngIf="role && role.metadata && role.metadata.createdBy">
+            <label>Oluşturan Kullanıcı</label>
+            <span>{{ role.metadata.createdBy }}</span>
+          </div>
+
+          <div class="detail-item" *ngIf="role && role.metadata && role.metadata.updatedBy">
+            <label>Güncelleyen Kullanıcı</label>
+            <span>{{ role.metadata.updatedBy }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

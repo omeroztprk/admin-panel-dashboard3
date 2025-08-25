@@ -1,10 +1,13 @@
 const authService = require('../services/authService');
 const tokenService = require('../services/tokenService');
+const { MESSAGES } = require('../utils/constants');
 const response = require('../utils/response');
 const { asyncHandler } = require('../middleware/errorHandler');
-const { MESSAGES } = require('../utils/constants');
 const { getClientIP, sanitizeObject, maskEmail } = require('../utils/helpers');
 const { resolveLanguage } = require('../config/i18n');
+const config = require('../config');
+const User = require('../models/User');
+const { isValidObjectId } = require('../utils/helpers');
 
 const register = asyncHandler(async (req, res) => {
   const userData = {
@@ -91,8 +94,21 @@ const logout = asyncHandler(async (req, res) => {
 });
 
 const logoutAll = asyncHandler(async (req, res) => {
-  await authService.logoutAll(req.user._id);
-  return response.success(res, req.t(MESSAGES.AUTH.LOGOUT_ALL_SUCCESS));
+  const user = req.user;
+  
+  if (user?.authMethod === 'sso' || user?.sso?.provider === 'keycloak') {
+    // SSO logout: Keycloak + local session temizle
+    req.logout(() => {
+      req.session?.destroy(() => {
+        return response.success(res, req.t(MESSAGES.GENERAL.SUCCESS));
+      });
+    });
+    return;
+  }
+
+  // DEFAULT kullanıcı: tüm refresh token'ları iptal et
+  await authService.revokeAllSessions(req.user._id);
+  return response.success(res, req.t(MESSAGES.GENERAL.SUCCESS));
 });
 
 const getMe = asyncHandler(async (req, res) => {
@@ -115,11 +131,57 @@ const changePassword = asyncHandler(async (req, res) => {
 });
 
 const getActiveSessions = asyncHandler(async (req, res) => {
-  const sessions = await authService.getActiveSessions(req.user._id);
-  return response.success(res, req.t(MESSAGES.GENERAL.SUCCESS), { sessions });
+  const user = req.user;
+  const currentRt = req.get('x-refresh-token') || req.get('X-Refresh-Token') || '';
+ 
+  let effectiveUserId = null;
+  
+  if (user?._id && isValidObjectId(user._id)) {
+    effectiveUserId = user._id;
+  } else if (user?.id && isValidObjectId(user.id)) {
+    effectiveUserId = user.id;
+  } else if (user?.sso?.keycloakId) {
+    const bySso = await User.findOne({ 'sso.keycloakId': user.sso.keycloakId }).select('_id');
+    if (bySso?._id) {
+      effectiveUserId = bySso._id;
+    }
+  } else if (user?.email) {
+    const byEmail = await User.findOne({ email: String(user.email).toLowerCase() }).select('_id');
+    if (byEmail?._id) {
+      effectiveUserId = byEmail._id;
+    }
+  }
+  
+  if (!effectiveUserId) {
+    return response.success(res, req.t(MESSAGES.GENERAL.SUCCESS), { sessions: [] });
+  }
+
+  try {
+    let sessions = [];
+    const authMethod = req.authMethod || user?.authMethod;
+    
+    if (config.auth?.mode === 'HYBRID' || authMethod === 'sso' || user?.sso?.provider === 'keycloak') {
+      sessions = await authService.getActiveSessions(effectiveUserId, currentRt, { source: 'auto' });
+    } else {
+      sessions = await authService.getActiveSessions(effectiveUserId, currentRt, { source: 'jwt' });
+    }
+    
+    if (sessions.length && req.sessionID) {
+      const index = sessions.findIndex(s => s.source === 'keycloak' && !s.isCurrent);
+      if (index >= 0) {
+        sessions[index].isCurrent = true;
+      }
+    }
+    
+    return response.success(res, req.t(MESSAGES.GENERAL.SUCCESS), { sessions });
+  } catch (error) {
+    console.error('Error fetching sessions:', error); // Bu error log'u koru
+    return response.error(res, req.t(MESSAGES.GENERAL.ERROR), 500);
+  }
 });
 
 const revokeSession = asyncHandler(async (req, res) => {
+  // Session revoke artık authService'te unified olarak yapılıyor
   await authService.revokeSession(req.user._id, req.params.tokenId);
   return response.success(res, req.t(MESSAGES.AUTH.SESSION_REVOKED));
 });

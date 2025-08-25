@@ -2,16 +2,20 @@ const express = require('express');
 const mongoose = require('mongoose');
 const auditRoutes = require('./audit');
 const authRoutes = require('./auth');
+const authSsoSessionsRoutes = require('./authSsoSessions'); // Yeni router'ı import et
 const permissionRoutes = require('./permissions');
 const roleRoutes = require('./roles');
 const userRoutes = require('./users');
 const categoryRoutes = require('./categories');
+const keycloakRoutes = require('./authKeycloak');
 const response = require('../utils/response');
 const { MESSAGES } = require('../utils/constants');
 const logger = require('../utils/logger');
+const config = require('../config');
 
 const router = express.Router();
 
+// Health check ve info endpoints...
 router.get('/health', async (req, res) => {
   try {
     const dbState = mongoose.connection.readyState;
@@ -35,59 +39,46 @@ router.get('/health', async (req, res) => {
       }
     };
 
-    if (isHealthy) {
-      return response.success(res, req.t(MESSAGES.GENERAL.API_RUNNING), healthData, 200);
-    } else {
-      logger.warn('Health check failed - database not connected', {
-        dbState,
-        connection: mongoose.connection.readyState
-      });
-      const msg = req.t(MESSAGES.GENERAL.API_UNHEALTHY);
-      if (typeof res.set === 'function' && req.getLanguage) {
-        res.set('Content-Language', req.getLanguage());
-      }
-      return res.status(503).json({
-        status: 'error',
-        message: msg,
-        data: healthData,
-        timestamp: new Date().toISOString()
-      });
-    }
-
+    return isHealthy
+      ? response.success(res, req.t(MESSAGES.GENERAL.API_RUNNING), healthData, 200)
+      : res.status(503).json({ status: 'error', message: req.t(MESSAGES.GENERAL.API_UNHEALTHY), data: healthData, timestamp: new Date().toISOString() });
   } catch (error) {
-    logger.error('Health check error:', {
-      error: error.message,
-      stack: error.stack
-    });
-
+    logger.error('Health check error:', { error: error.message, stack: error.stack });
     return response.error(res, req.t(MESSAGES.GENERAL.API_ERROR), 500);
   }
 });
 
 router.get('/info', (req, res) => {
-  try {
-    const info = {
-      name: 'Admin Panel API',
-      version: process.env.npm_package_version || '1.0.0',
-      environment: process.env.NODE_ENV || 'development',
-      endpoints: {
-        auth: '/api/v1/auth',
-        users: '/api/v1/users',
-        roles: '/api/v1/roles',
-        permissions: '/api/v1/permissions',
-        audit: '/api/v1/audit',
-        categories: '/api/v1/categories'
-      }
-    };
-
-    response.success(res, req.t(MESSAGES.GENERAL.SUCCESS), info);
-  } catch (error) {
-    logger.error('API info error:', error);
-    response.error(res, req.t(MESSAGES.GENERAL.INTERNAL_ERROR), 500);
-  }
+  const info = {
+    name: 'Admin Panel API',
+    version: process.env.npm_package_version || '1.0.0',
+    environment: process.env.NODE_ENV || 'development',
+    authMode: config.auth.mode,
+    endpoints: {
+      auth: '/api/v1/auth',
+      users: '/api/v1/users',
+      roles: '/api/v1/roles',
+      permissions: '/api/v1/permissions',
+      audit: '/api/v1/audit',
+      categories: '/api/v1/categories'
+    }
+  };
+  response.success(res, req.t(MESSAGES.GENERAL.SUCCESS), info);
 });
 
-router.use('/auth', authRoutes);
+// SSO/Keycloak rotaları her zaman aktif
+router.use('/auth', keycloakRoutes);
+
+// AUTH MODE'a göre rotaları ayarla
+if (['DEFAULT', 'HYBRID'].includes(config.auth.mode)) {
+  // DEFAULT ve HYBRID modlarda tüm auth rotaları
+  router.use('/auth', authRoutes);
+} else {
+  // SSO modunda sadece sessions ile ilgili auth rotaları
+  router.use('/auth', authSsoSessionsRoutes);
+}
+
+// Diğer rotalar her modda aktif
 router.use('/users', userRoutes);
 router.use('/roles', roleRoutes);
 router.use('/permissions', permissionRoutes);

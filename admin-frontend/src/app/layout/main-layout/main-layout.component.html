@@ -1,0 +1,33 @@
+<div class="app-layout" *ngIf="isAuthenticated">
+  <!-- Sidebar -->
+  <app-sidebar 
+    [isOpen]="sidebarOpen"
+    [isCollapsed]="sidebarCollapsed"
+    (close)="closeSidebar()"
+    (toggleCollapse)="toggleSidebarCollapse()">
+  </app-sidebar>
+
+  <!-- Main Container -->
+  <div class="main-container" 
+       [class.with-sidebar]="sidebarOpen && !sidebarCollapsed"
+       [class.sidebar-collapsed]="sidebarOpen && sidebarCollapsed">
+    
+    <!-- Header -->
+    <app-header (sidebarToggle)="toggleSidebar()"></app-header>
+    
+    <!-- Main Content Area -->
+    <main class="main-content">
+      <div class="content-wrapper">
+        <router-outlet></router-outlet>
+      </div>
+    </main>
+    
+    <!-- Footer -->
+    <app-footer></app-footer>
+  </div>
+</div>
+
+<!-- Auth Pages (No Layout) -->
+<div class="auth-container" *ngIf="!isAuthenticated">
+  <router-outlet></router-outlet>
+</div>

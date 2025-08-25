@@ -54,6 +54,7 @@
       "refresh_token_missing": "Refresh token is missing",
       "invalid_refresh_token": "Invalid refresh token",
       "invalid_session": "Invalid session",
+      "account_not_found": "Account not found",
       "account_locked": "Account is locked",
       "account_locked_dynamic": "Your account is locked. Please try again in {{minute}}m {{seconds}}s",
       "account_inactive": "Account is inactive",

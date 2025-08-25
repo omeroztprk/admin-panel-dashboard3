@@ -1,0 +1,169 @@
+<div class="user-form-container">
+  <!-- Header -->
+  <div class="header">
+    <div class="breadcrumb">
+      <button class="btn-link" (click)="cancel()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="15,18 9,12 15,6"></polyline>
+        </svg>
+        Kullanıcılar
+      </button>
+      <span class="separator">/</span>
+      <span>{{ isEditMode ? 'Düzenle' : 'Yeni Kullanıcı' }}</span>
+    </div>
+  </div>
+
+  <!-- Error Message -->
+  <div *ngIf="error" class="alert alert-error" role="alert">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="12" r="10"></circle>
+      <line x1="15" y1="9" x2="9" y2="15"></line>
+      <line x1="9" y1="9" x2="15" y2="15"></line>
+    </svg>
+    {{ error }}
+  </div>
+
+  <!-- Loading -->
+  <div *ngIf="loading" class="loading-container">
+    <div class="spinner"></div>
+    <span>Kullanıcı bilgileri yükleniyor...</span>
+  </div>
+
+  <!-- Form -->
+  <div *ngIf="!loading" class="form-container">
+    <form [formGroup]="userForm" (ngSubmit)="onSubmit()" class="user-form">
+      <!-- Basic Information -->
+      <div class="form-section">
+        <h3>Temel Bilgiler</h3>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="firstName" class="required">Ad</label>
+            <input id="firstName" type="text" formControlName="firstName" [class.error]="isFieldInvalid('firstName')"
+              placeholder="Ad giriniz" class="form-control">
+            <div *ngIf="isFieldInvalid('firstName')" class="error-message">
+              {{ getFieldError('firstName') }}
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="lastName" class="required">Soyad</label>
+            <input id="lastName" type="text" formControlName="lastName" [class.error]="isFieldInvalid('lastName')"
+              placeholder="Soyad giriniz" class="form-control">
+            <div *ngIf="isFieldInvalid('lastName')" class="error-message">
+              {{ getFieldError('lastName') }}
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="email" class="required">Email</label>
+          <input id="email" type="email" formControlName="email" [class.error]="isFieldInvalid('email')"
+            placeholder="email@example.com" class="form-control">
+          <div *ngIf="isFieldInvalid('email')" class="error-message">
+            {{ getFieldError('email') }}
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="password" [class.required]="!isEditMode">
+            {{ isEditMode ? 'Yeni Şifre (boş bırakılabilir)' : 'Şifre' }}
+          </label>
+          <input id="password" type="password" formControlName="password"
+            [class.error]="isFieldInvalid('password')"
+            [disabled]="isSsoUser || saving"
+            placeholder="Şifre giriniz" class="form-control">
+          <div *ngIf="isFieldInvalid('password')" class="error-message">
+            {{ getFieldError('password') }}
+          </div>
+          <small class="help-text">
+            Şifre en az 8 karakter, büyük/küçük harf, rakam ve özel karakter içermelidir
+          </small>
+          <small class="help-text" *ngIf="isSsoUser">
+            Keycloak kullanıcısının şifresi Keycloak üzerinden yönetilir.
+          </small>
+        </div>
+      </div>
+
+      <!-- Roles -->
+      <div class="form-section">
+        <h3>Roller</h3>
+        <div class="form-group">
+          <label>Kullanıcı Rolleri</label>
+          <div class="roles-selection">
+            <div *ngFor="let role of roles; trackBy: trackByRoleId" class="role-checkbox">
+              <input type="checkbox" [id]="'role-' + role._id" [value]="role._id"
+                [checked]="userForm.get('roles')?.value?.includes(role._id)" (change)="onRoleChange($event, role._id)"
+                [disabled]="saving">
+              <label [for]="'role-' + role._id" class="checkbox-label">
+                <span class="role-name">{{ role.displayName || role.name }}</span>
+                <span class="role-description" *ngIf="role.description">
+                  {{ role.description }}
+                </span>
+                <span class="role-meta">
+                  Öncelik: {{ role.priority }}
+                  <span *ngIf="role.isSystem" class="system-badge">Sistem Rolü</span>
+                  <span *ngIf="role.permissions?.length" class="permission-count">
+                    {{ role.permissions.length }} İzin
+                  </span>
+                </span>
+              </label>
+            </div>
+          </div>
+          <div *ngIf="roles.length === 0" class="empty-state">
+            <p>Henüz aktif rol bulunmuyor.</p>
+          </div>
+          <small class="help-text">
+            Kullanıcıya atanacak rolleri seçiniz. Roller kullanıcının izinlerini belirler.
+          </small>
+        </div>
+      </div>
+
+      <!-- Profile -->
+      <div class="form-section" formGroupName="profile">
+        <h3>Profil Bilgileri</h3>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="language">Dil</label>
+            <select id="language" formControlName="language" class="form-control">
+              <option value="tr">Türkçe</option>
+              <option value="en">English</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="timezone">Saat Dilimi</label>
+            <select id="timezone" formControlName="timezone" class="form-control">
+              <option value="Europe/Istanbul">İstanbul (UTC+3)</option>
+              <option value="UTC">UTC</option>
+              <option value="America/New_York">New York (UTC-5)</option>
+              <option value="Europe/London">London (UTC+0)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="phone">Telefon</label>
+          <input id="phone" type="tel" formControlName="phone" placeholder="+90 555 123 4567" class="form-control">
+          <div *ngIf="isFieldInvalid('profile', 'phone')" class="error-message">
+            {{ getFieldError('profile', 'phone') }}
+          </div>
+        </div>
+      </div>
+
+      <!-- Form Actions -->
+      <div class="form-actions">
+        <button type="button" class="btn btn-outline" (click)="cancel()" [disabled]="saving">
+          İptal
+        </button>
+
+        <button type="submit" class="btn btn-primary" [disabled]="saving || userForm.invalid">
+          <div *ngIf="saving" class="spinner small"></div>
+          <span *ngIf="!saving">{{ isEditMode ? 'Güncelle' : 'Oluştur' }}</span>
+          <span *ngIf="saving">{{ isEditMode ? 'Güncelleniyor...' : 'Oluşturuluyor...' }}</span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>

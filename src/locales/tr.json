@@ -54,6 +54,7 @@
       "refresh_token_missing": "Yenileme tokenı eksik",
       "invalid_refresh_token": "Geçersiz yenileme tokenı",
       "invalid_session": "Geçersiz oturum",
+      "account_not_found": "Hesap bulunamadı",
       "account_locked": "Hesap kilitli",
       "account_locked_dynamic": "Hesabınız kilitli. Lütfen {{minute}} dk {{seconds}} sn sonra tekrar deneyin",
       "account_inactive": "Hesap pasif",

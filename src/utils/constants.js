@@ -24,6 +24,7 @@ const ERRORS = {
     REFRESH_TOKEN_MISSING: 'errors.auth.refresh_token_missing',
     INVALID_REFRESH_TOKEN: 'errors.auth.invalid_refresh_token',
     INVALID_SESSION: 'errors.auth.invalid_session',
+    ACCOUNT_NOT_FOUND: 'errors.auth.account_not_found',
     ACCOUNT_LOCKED: 'errors.auth.account_locked',
     ACCOUNT_LOCKED_DYNAMIC: 'errors.auth.account_locked_dynamic',
     ACCOUNT_INACTIVE: 'errors.auth.account_inactive',

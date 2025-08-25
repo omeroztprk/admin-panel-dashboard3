@@ -1,0 +1,406 @@
+// Apple-inspired modern TFA page styling
+
+// Variables - matching login page
+$primary-color: #0071e3; // Apple blue
+$primary-gradient: linear-gradient(135deg, #0070e0, #42a5f5);
+$background-color: #f5f5f7; // Light gray background
+$card-background: #ffffff;
+$text-color: #1d1d1f;
+$text-secondary: #86868b;
+$error-color: #ff3b30;
+$success-color: #34c759;
+$border-radius: 12px;
+$input-border: #d2d2d7;
+$input-focus: #0071e3;
+$shadow: rgba(0, 0, 0, 0.1);
+$card-shadow: 0 12px 28px rgba(0, 0, 0, 0.08), 0 4px 8px rgba(0, 0, 0, 0.04);
+$transition-speed: 0.2s;
+
+// Fonts
+$font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+
+// Mixins
+@mixin flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@mixin flex-column {
+  display: flex;
+  flex-direction: column;
+}
+
+@mixin button-reset {
+  border: none;
+  background: none;
+  cursor: pointer;
+  padding: 0;
+  font: inherit;
+  outline: none;
+}
+
+// Base styles
+* {
+  box-sizing: border-box;
+  font-family: $font-family;
+}
+
+// Keyframes for animations
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.05);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes inputFocus {
+  0% {
+    box-shadow: 0 0 0 0 rgba($primary-color, 0);
+  }
+
+  70% {
+    box-shadow: 0 0 0 6px rgba($primary-color, 0.2);
+  }
+
+  100% {
+    box-shadow: 0 0 0 4px rgba($primary-color, 0.15);
+  }
+}
+
+.tfa-container {
+  @include flex-center;
+  min-height: 100vh;
+  background-color: $background-color;
+  background-image: radial-gradient(circle at 30% 70%, rgba(0, 113, 227, 0.02) 0%, transparent 70%),
+    radial-gradient(circle at 70% 30%, rgba(0, 113, 227, 0.02) 0%, transparent 70%);
+  padding: 24px;
+  transition: background-color 0.5s ease;
+  animation: fadeIn 0.8s ease-out;
+}
+
+.tfa-card {
+  @include flex-column;
+  background-color: $card-background;
+  border-radius: $border-radius;
+  box-shadow: $card-shadow;
+  width: 100%;
+  max-width: 420px;
+  padding: 40px;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  animation: fadeIn 0.6s ease-out;
+
+  &:hover {
+    box-shadow: 0 16px 32px rgba(0, 0, 0, 0.12), 0 8px 16px rgba(0, 0, 0, 0.06);
+  }
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 4px;
+    background: $primary-gradient;
+    opacity: 0.9;
+  }
+
+  @media (max-width: 480px) {
+    padding: 32px 24px;
+    border-radius: 8px;
+  }
+}
+
+.tfa-header {
+  text-align: center;
+  margin-bottom: 36px;
+  animation: fadeIn 0.8s ease-out;
+
+  .tfa-icon {
+    @include flex-center;
+    margin: 0 auto 16px;
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    background-color: rgba($primary-color, 0.08);
+    color: $primary-color;
+    transition: all 0.3s ease;
+    animation: pulse 2s ease-in-out infinite;
+
+    svg {
+      transition: all 0.3s ease;
+    }
+
+    &:hover {
+      background-color: rgba($primary-color, 0.12);
+      transform: scale(1.05);
+
+      svg {
+        transform: rotate(5deg);
+      }
+    }
+  }
+
+  h2 {
+    font-size: 28px;
+    font-weight: 600;
+    color: $text-color;
+    margin: 0 0 8px;
+    background: $primary-gradient;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+  }
+
+  .email-hint {
+    display: inline-block;
+    margin-top: 12px;
+    font-size: 14px;
+    background-color: rgba($primary-color, 0.1);
+    color: $primary-color;
+    border-radius: 16px;
+    padding: 4px 12px;
+    transition: all 0.3s ease;
+
+    &:hover {
+      background-color: rgba($primary-color, 0.15);
+      transform: translateY(-1px);
+    }
+  }
+}
+
+.tfa-form {
+  @include flex-column;
+  gap: 24px;
+  width: 100%;
+  animation: fadeIn 1s ease-out;
+}
+
+.form-group {
+  @include flex-column;
+  gap: 8px;
+  transition: all 0.3s ease;
+  animation: fadeIn 0.8s ease-out;
+  animation-fill-mode: both;
+  animation-delay: 0.1s;
+
+  label {
+    font-size: 14px;
+    font-weight: 500;
+    color: $text-color;
+    transition: color 0.2s ease;
+  }
+}
+
+.input-wrapper {
+  position: relative;
+  width: 100%;
+
+  .input-icon {
+    position: absolute;
+    left: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: $text-secondary;
+    pointer-events: none;
+    transition: all 0.3s ease;
+  }
+
+  .code-input {
+    width: 100%;
+    padding: 14px 16px 14px 46px;
+    font-size: 20px;
+    letter-spacing: 0.25em;
+    text-align: center;
+    border: 1px solid $input-border;
+    border-radius: $border-radius;
+    background-color: $card-background;
+    color: $text-color;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    -webkit-appearance: none;
+    appearance: none;
+
+    &:focus {
+      border-color: $input-focus;
+      box-shadow: 0 0 0 4px rgba($input-focus, 0.15);
+      outline: none;
+      animation: inputFocus 0.5s ease-out;
+
+      &+.input-icon {
+        color: $primary-color;
+      }
+    }
+
+    &::placeholder {
+      color: lighten($text-secondary, 20%);
+      transition: opacity 0.2s ease;
+      letter-spacing: 0.25em;
+    }
+
+    &:focus::placeholder {
+      opacity: 0.7;
+    }
+
+    &.error {
+      border-color: $error-color;
+
+      &:focus {
+        box-shadow: 0 0 0 4px rgba($error-color, 0.15);
+      }
+
+      &+.input-icon {
+        color: $error-color;
+      }
+    }
+  }
+}
+
+.submit-btn {
+  @include button-reset;
+  background: $primary-gradient;
+  color: white;
+  border-radius: $border-radius;
+  padding: 14px;
+  font-weight: 500;
+  font-size: 16px;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  margin-top: 8px;
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+  animation: fadeIn 0.8s ease-out;
+  animation-delay: 0.3s;
+  animation-fill-mode: both;
+  box-shadow: 0 2px 6px rgba($primary-color, 0.25);
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg,
+        transparent,
+        rgba(255, 255, 255, 0.2),
+        transparent);
+    transition: all 0.6s ease;
+  }
+
+  &:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba($primary-color, 0.3);
+
+    &::before {
+      left: 100%;
+    }
+  }
+
+  &:active:not(:disabled) {
+    box-shadow: 0 3px 8px rgba($primary-color, 0.25);
+    background: linear-gradient(135deg, darken(#0070e0, 3%), darken(#42a5f5, 3%));
+  }
+
+  &:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+    background: linear-gradient(135deg, desaturate($primary-color, 30%), lighten(desaturate($primary-color, 30%), 15%));
+  }
+
+  &.loading {
+    position: relative;
+    color: transparent;
+
+    span {
+      opacity: 0;
+      visibility: hidden;
+    }
+  }
+}
+
+.spinner {
+  @include flex-center;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+
+  &::after {
+    content: '';
+    width: 20px;
+    height: 20px;
+    border: 2px solid rgba(white, 0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+}
+
+.error-message {
+  @include flex-center;
+  gap: 8px;
+  padding: 12px 16px;
+  background-color: rgba($error-color, 0.1);
+  color: $error-color;
+  border-radius: $border-radius;
+  font-size: 14px;
+  animation: fadeIn 0.5s ease;
+  transition: all 0.3s ease;
+
+  svg {
+    flex-shrink: 0;
+    transition: transform 0.3s ease;
+  }
+
+  &:hover svg {
+    transform: rotate(15deg);
+  }
+}
+
+.help-text {
+  text-align: center;
+  margin-top: 8px;
+  animation: fadeIn 0.8s ease-out;
+  animation-delay: 0.4s;
+  animation-fill-mode: both;
+
+  p {
+    font-size: 14px;
+    color: $text-secondary;
+    margin: 0;
+    transition: all 0.3s ease;
+  }
+}

@@ -1,0 +1,50 @@
+<footer class="app-footer">
+  <div class="footer-container">
+    <div class="footer-content">
+      <!-- Left Side - Brand & Copyright -->
+      <div class="footer-brand">
+        <div class="brand-logo">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+            <rect x="9" y="9" width="6" height="6"></rect>
+          </svg>
+        </div>
+        <div class="brand-info">
+          <span class="brand-name">Admin Panel</span>
+          <span class="copyright">© {{ currentYear }} Tüm hakları saklıdır.</span>
+        </div>
+      </div>
+
+      <!-- Center - Quick Links -->
+      <div class="footer-links" *ngIf="showLinks">
+        <a href="#" class="footer-link">Gizlilik Politikası</a>
+        <a href="#" class="footer-link">Kullanım Koşulları</a>
+        <a href="#" class="footer-link">Destek</a>
+        <a href="#" class="footer-link">Dokümantasyon</a>
+      </div>
+
+      <!-- Right Side - System Info -->
+      <div class="footer-info">
+        <div class="system-info">
+          <span class="version" *ngIf="version">v{{ version }}</span>
+          <div class="status-indicator" [class.online]="isOnline" [class.offline]="!isOnline">
+            <div class="status-dot"></div>
+            <span class="status-text">{{ isOnline ? 'Çevrimiçi' : 'Çevrimdışı' }}</span>
+          </div>
+        </div>
+        
+        <div class="build-info" *ngIf="showBuildInfo">
+          <span class="build-date">Build: {{ buildDate }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Minimal Mode (for mobile/compact view) -->
+    <div class="footer-minimal" *ngIf="isMinimal">
+      <span class="minimal-text">© {{ currentYear }} Admin Panel</span>
+      <div class="minimal-status">
+        <div class="status-dot" [class.online]="isOnline" [class.offline]="!isOnline"></div>
+      </div>
+    </div>
+  </div>
+</footer>

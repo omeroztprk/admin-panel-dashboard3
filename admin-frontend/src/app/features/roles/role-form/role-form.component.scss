@@ -1,0 +1,963 @@
+// Apple-inspired modern role form page styling - User Form ile aynı tasarım
+
+// Variables - User form ile aynı
+$primary-color: #0071e3; // Apple blue
+$primary-gradient: linear-gradient(135deg, #0070e0, #42a5f5);
+$secondary-gradient: linear-gradient(135deg, #42a5f5, #64b5f6);
+$background-color: #f5f5f7; // Light gray background
+$card-background: #ffffff;
+$text-color: #1d1d1f;
+$text-secondary: #86868b;
+$error-color: #ff3b30;
+$success-color: #34c759;
+$warning-color: #ff9500;
+$border-radius: 12px;
+$input-border: #d2d2d7;
+$input-focus: #0071e3;
+$card-shadow: 0 12px 28px rgba(0, 0, 0, 0.08), 0 4px 8px rgba(0, 0, 0, 0.04);
+$hover-shadow: 0 16px 32px rgba(0, 0, 0, 0.12), 0 8px 16px rgba(0, 0, 0, 0.06);
+$transition-speed: 0.3s;
+
+// Fonts
+$font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+
+// Mixins
+@mixin flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@mixin flex-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+@mixin flex-column {
+  display: flex;
+  flex-direction: column;
+}
+
+@mixin button-reset {
+  border: none;
+  background: none;
+  cursor: pointer;
+  padding: 0;
+  font: inherit;
+  outline: none;
+}
+
+// Base styles
+* {
+  box-sizing: border-box;
+  font-family: $font-family;
+}
+
+// Keyframes for animations
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes inputFocus {
+  0% {
+    box-shadow: 0 0 0 0 rgba($primary-color, 0);
+  }
+
+  70% {
+    box-shadow: 0 0 0 6px rgba($primary-color, 0.2);
+  }
+
+  100% {
+    box-shadow: 0 0 0 4px rgba($primary-color, 0.15);
+  }
+}
+
+.role-form-container {
+  width: 100%;
+  padding: 32px;
+  animation: fadeIn 0.8s ease-out;
+
+  @media (max-width: 768px) {
+    padding: 24px;
+  }
+
+  @media (max-width: 480px) {
+    padding: 16px;
+  }
+}
+
+.header {
+  margin-bottom: 32px;
+  animation: fadeIn 0.6s ease-out;
+
+  .breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    color: $text-secondary;
+
+    .btn-link {
+      @include button-reset;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: $primary-color;
+      font-weight: 500;
+      transition: all $transition-speed ease;
+      padding: 4px 8px;
+      border-radius: 6px;
+
+      &:hover {
+        background: rgba($primary-color, 0.1);
+        transform: translateX(-2px);
+      }
+
+      svg {
+        transition: transform $transition-speed ease;
+      }
+
+      &:hover svg {
+        transform: translateX(-2px);
+      }
+    }
+
+    .separator {
+      color: $text-secondary;
+      margin: 0 4px;
+    }
+
+    >span:last-child {
+      color: $text-color;
+      font-weight: 500;
+    }
+  }
+}
+
+.alert {
+  padding: 16px;
+  border-radius: $border-radius;
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+  font-weight: 500;
+  animation: fadeIn 0.5s ease;
+
+  svg {
+    flex-shrink: 0;
+  }
+
+  &.alert-error {
+    background-color: rgba($error-color, 0.1);
+    color: $error-color;
+    border: 1px solid rgba($error-color, 0.2);
+  }
+
+  &.alert-warning {
+    background-color: rgba($warning-color, 0.1);
+    color: $warning-color;
+    border: 1px solid rgba($warning-color, 0.2);
+  }
+}
+
+.loading-container {
+  @include flex-center;
+  flex-direction: column;
+  padding: 60px 20px;
+  gap: 16px;
+  color: $text-secondary;
+
+  .spinner {
+    @include flex-center;
+
+    &::after {
+      content: '';
+      width: 32px;
+      height: 32px;
+      border: 3px solid rgba($primary-color, 0.3);
+      border-top-color: $primary-color;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+  }
+}
+
+.form-container {
+  animation: fadeIn 0.8s ease-out;
+  animation-delay: 0.2s;
+  animation-fill-mode: both;
+}
+
+.role-form {
+  background-color: $card-background;
+  border-radius: $border-radius;
+  box-shadow: $card-shadow;
+  overflow: hidden;
+  position: relative;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 4px;
+    background: $primary-gradient;
+    opacity: 0.9;
+  }
+
+  .form-section {
+    padding: 24px;
+    border-bottom: 1px solid rgba($input-border, 0.3);
+
+    &:last-child {
+      border-bottom: none;
+    }
+
+    h3 {
+      font-size: 18px;
+      font-weight: 600;
+      color: $text-color;
+      margin: 0 0 20px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid rgba($primary-color, 0.1);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+
+      &::before {
+        content: '';
+        width: 4px;
+        height: 20px;
+        background: $primary-gradient;
+        border-radius: 2px;
+      }
+    }
+  }
+
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+
+    @media (max-width: 768px) {
+      grid-template-columns: 1fr;
+      gap: 16px;
+    }
+  }
+
+  .form-group {
+    @include flex-column;
+    gap: 6px;
+    margin-bottom: 20px;
+    animation: slideInRight 0.5s ease-out;
+    animation-fill-mode: both;
+
+    &:nth-child(1) {
+      animation-delay: 0.1s;
+    }
+
+    &:nth-child(2) {
+      animation-delay: 0.2s;
+    }
+
+    &:nth-child(3) {
+      animation-delay: 0.3s;
+    }
+
+    &:nth-child(4) {
+      animation-delay: 0.4s;
+    }
+
+    &:nth-child(5) {
+      animation-delay: 0.5s;
+    }
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+
+    label {
+      font-size: 14px;
+      font-weight: 500;
+      color: $text-color;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+
+      &.required::after {
+        content: '*';
+        color: $error-color;
+        font-size: 12px;
+        margin-left: 2px;
+      }
+    }
+  }
+
+  .form-control {
+    padding: 14px 16px;
+    font-size: 15px;
+    border: 1px solid $input-border;
+    border-radius: $border-radius;
+    background-color: $card-background;
+    color: $text-color;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    width: 100%;
+
+    &:focus {
+      border-color: $input-focus;
+      box-shadow: 0 0 0 4px rgba($input-focus, 0.15);
+      outline: none;
+      animation: inputFocus 0.5s ease-out;
+    }
+
+    &::placeholder {
+      color: lighten($text-secondary, 20%);
+      transition: opacity 0.2s ease;
+    }
+
+    &:focus::placeholder {
+      opacity: 0.7;
+    }
+
+    &.error {
+      border-color: $error-color;
+
+      &:focus {
+        box-shadow: 0 0 0 4px rgba($error-color, 0.15);
+      }
+    }
+
+    &:disabled {
+      background-color: rgba($text-secondary, 0.05);
+      color: $text-secondary;
+      cursor: not-allowed;
+    }
+  }
+
+  select.form-control {
+    cursor: pointer;
+    -webkit-appearance: none;
+    appearance: none;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 16px;
+    padding-right: 40px;
+  }
+
+  textarea.form-control {
+    resize: vertical;
+    min-height: 100px;
+  }
+
+  .error-message {
+    font-size: 12px;
+    color: $error-color;
+    margin-top: 4px;
+    animation: fadeIn 0.3s ease-out;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+
+    &:empty {
+      margin-top: 0;
+      height: 0;
+    }
+
+    &::before {
+      content: '';
+      flex-shrink: 0;
+      width: 12px;
+      height: 12px;
+      background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ff3b30' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3ccircle cx='12' cy='12' r='10'%3e%3c/circle%3e%3cline x1='15' y1='9' x2='9' y2='15'%3e%3c/line%3e%3cline x1='9' y1='9' x2='15' y2='15'%3e%3c/line%3e%3c/svg%3e");
+      background-repeat: no-repeat;
+      background-position: center;
+      background-size: contain;
+    }
+  }
+
+  .help-text {
+    font-size: 12px;
+    color: $text-secondary;
+    margin-top: 4px;
+    line-height: 1.4;
+    font-style: italic;
+  }
+
+  .checkbox-label {
+    @include flex-center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    color: $text-color;
+    justify-content: flex-start;
+
+    input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+      accent-color: $primary-color;
+      flex-shrink: 0;
+    }
+
+    .checkbox-custom {
+      display: none; // Varsayılan checkbox kullanacağız
+    }
+  }
+
+  // Permissions section
+  .permissions-container {
+    margin-top: 12px;
+    border: 1px solid rgba($input-border, 0.3);
+    border-radius: $border-radius;
+    padding: 16px;
+    background: rgba($primary-color, 0.01);
+    max-height: 400px;
+    overflow-y: auto;
+
+    .permissions-summary {
+      background: rgba($primary-color, 0.05);
+      padding: 8px 12px;
+      border-radius: 6px;
+      margin-bottom: 16px;
+      border: 1px solid rgba($primary-color, 0.1);
+
+      p {
+        margin: 0;
+        font-size: 13px;
+        font-weight: 500;
+        color: $text-color;
+      }
+    }
+
+    .permission-category {
+      margin-bottom: 20px;
+
+      &:last-child {
+        margin-bottom: 0;
+      }
+
+      .category-header {
+        @include flex-between;
+        margin-bottom: 12px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid rgba($input-border, 0.3);
+
+        h4 {
+          font-size: 15px;
+          font-weight: 600;
+          color: $text-color;
+          margin: 0;
+        }
+
+        .category-count {
+          font-size: 12px;
+          color: $text-secondary;
+          background: rgba($text-secondary, 0.1);
+          padding: 2px 6px;
+          border-radius: 8px;
+        }
+      }
+    }
+
+    .permissions-grid {
+      display: grid;
+      gap: 8px;
+
+      .permission-checkbox {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+
+        input[type="checkbox"] {
+          width: 16px;
+          height: 16px;
+          margin-top: 2px;
+          accent-color: $primary-color;
+          flex-shrink: 0;
+        }
+
+        .checkbox-label {
+          flex: 1;
+          cursor: pointer;
+          padding: 8px;
+          border-radius: 6px;
+          transition: all $transition-speed ease;
+
+          &:hover {
+            background: rgba($primary-color, 0.05);
+          }
+
+          .permission-info {
+            @include flex-column;
+            gap: 2px;
+
+            .permission-name {
+              font-size: 13px;
+              font-weight: 600;
+              color: $text-color;
+            }
+
+            .permission-resource {
+              font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+              font-size: 11px;
+              font-weight: 500;
+              color: $text-secondary;
+              background: rgba($text-secondary, 0.08);
+              padding: 2px 6px;
+              border-radius: 4px;
+              align-self: flex-start;
+            }
+
+            .permission-description {
+              font-size: 11px;
+              color: lighten($text-secondary, 10%);
+              line-height: 1.3;
+              font-style: italic;
+            }
+          }
+        }
+
+        input[type="checkbox"]:checked + .checkbox-label {
+          background: rgba($primary-color, 0.08);
+          border: 1px solid rgba($primary-color, 0.2);
+
+          .permission-info .permission-name {
+            color: $primary-color;
+          }
+        }
+      }
+    }
+  }
+
+  .empty-state {
+    @include flex-center;
+    flex-direction: column;
+    padding: 40px 20px;
+    text-align: center;
+    color: $text-secondary;
+    background: rgba($text-secondary, 0.02);
+    border-radius: $border-radius;
+    border: 1px solid rgba($input-border, 0.5);
+
+    svg {
+      margin-bottom: 12px;
+      opacity: 0.5;
+    }
+
+    h4 {
+      font-size: 16px;
+      font-weight: 600;
+      color: $text-color;
+      margin: 0 0 6px;
+    }
+
+    p {
+      margin: 0 0 16px;
+      font-size: 14px;
+      font-style: italic;
+    }
+  }
+
+  .form-actions {
+    @include flex-between;
+    padding: 24px;
+    background: rgba($primary-color, 0.02);
+    border-top: 1px solid rgba($input-border, 0.3);
+    gap: 16px;
+
+    @media (max-width: 480px) {
+      flex-direction: column;
+
+      .btn {
+        width: 100%;
+        justify-content: center;
+      }
+    }
+  }
+}
+
+.btn {
+  @include button-reset;
+  border-radius: $border-radius;
+  padding: 14px 24px;
+  font-weight: 500;
+  font-size: 15px;
+  transition: all $transition-speed ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  text-decoration: none;
+  position: relative;
+  overflow: hidden;
+  min-height: 48px;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg,
+        transparent,
+        rgba(255, 255, 255, 0.2),
+        transparent);
+    transition: all 0.6s ease;
+  }
+
+  &:hover:not(:disabled) {
+    transform: translateY(-2px);
+
+    &::before {
+      left: 100%;
+    }
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none !important;
+  }
+
+  svg {
+    flex-shrink: 0;
+  }
+
+  &.btn-primary {
+    background: $primary-gradient;
+    color: white;
+    box-shadow: 0 2px 6px rgba($primary-color, 0.25);
+
+    &:hover:not(:disabled) {
+      box-shadow: 0 4px 12px rgba($primary-color, 0.3);
+    }
+
+    &:disabled {
+      background: linear-gradient(135deg, desaturate($primary-color, 30%), lighten(desaturate($primary-color, 30%), 15%));
+    }
+  }
+
+  &.btn-outline {
+    background: transparent;
+    color: $text-secondary;
+    border: 1px solid rgba($input-border, 0.8);
+
+    &:hover:not(:disabled) {
+      background: rgba($text-secondary, 0.05);
+      border-color: $text-secondary;
+      color: $text-color;
+    }
+  }
+
+  &.small {
+    padding: 10px 16px;
+    font-size: 14px;
+  }
+}
+
+.spinner {
+  @include flex-center;
+
+  &::after {
+    content: '';
+    width: 20px;
+    height: 20px;
+    border: 2px solid rgba(white, 0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  &.small::after {
+    width: 16px;
+    height: 16px;
+    border-width: 2px;
+  }
+}
+
+// Permission-specific styles
+.permission-summary {
+  @include flex-between;
+  margin-bottom: 20px;
+  padding: 16px;
+  background: rgba($primary-color, 0.05);
+  border-radius: $border-radius;
+  border: 1px solid rgba($primary-color, 0.1);
+
+  .summary-item {
+    @include flex-column;
+    gap: 4px;
+
+    label {
+      font-size: 12px;
+      font-weight: 600;
+      color: $text-secondary;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .count {
+      font-size: 18px;
+      font-weight: 600;
+      color: $primary-color;
+    }
+  }
+
+  .quick-actions {
+    display: flex;
+    gap: 8px;
+
+    .btn.small {
+      padding: 6px 12px;
+      font-size: 12px;
+    }
+  }
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+    gap: 12px;
+  }
+}
+
+.loading-permissions {
+  @include flex-center;
+  gap: 12px;
+  padding: 40px 20px;
+  color: $text-secondary;
+
+  .spinner.small {
+    &::after {
+      width: 20px;
+      height: 20px;
+      border-width: 2px;
+    }
+  }
+}
+
+.permissions-container {
+  border: 1px solid rgba($input-border, 0.3);
+  border-radius: $border-radius;
+  padding: 16px;
+  background: rgba($primary-color, 0.01);
+  max-height: 400px;
+  overflow-y: auto;
+
+  .permissions-summary {
+    background: rgba($primary-color, 0.05);
+    padding: 8px 12px;
+    border-radius: 6px;
+    margin-bottom: 16px;
+    border: 1px solid rgba($primary-color, 0.1);
+
+    p {
+      margin: 0;
+      font-size: 13px;
+      font-weight: 500;
+      color: $text-color;
+    }
+  }
+}
+
+.permission-category {
+  margin-bottom: 20px;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+
+  .category-header {
+    @include flex-between;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba($input-border, 0.3);
+
+    h4 {
+      font-size: 15px;
+      font-weight: 600;
+      color: $text-color;
+      margin: 0;
+    }
+
+    .category-count {
+      font-size: 12px;
+      color: $text-secondary;
+      background: rgba($text-secondary, 0.1);
+      padding: 2px 6px;
+      border-radius: 8px;
+    }
+  }
+}
+
+.permissions-grid {
+  display: grid;
+  gap: 8px;
+
+  .permission-checkbox {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+
+    input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      margin-top: 2px;
+      accent-color: $primary-color;
+      flex-shrink: 0;
+    }
+
+    .checkbox-label {
+      flex: 1;
+      cursor: pointer;
+      padding: 8px;
+      border-radius: 6px;
+      transition: all $transition-speed ease;
+
+      &:hover {
+        background: rgba($primary-color, 0.05);
+      }
+
+      .permission-info {
+        @include flex-column;
+        gap: 2px;
+
+        .permission-name {
+          font-size: 13px;
+          font-weight: 600;
+          color: $text-color;
+        }
+
+        .permission-resource {
+          font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+          font-size: 11px;
+          font-weight: 500;
+          color: $text-secondary;
+          background: rgba($text-secondary, 0.08);
+          padding: 2px 6px;
+          border-radius: 4px;
+          align-self: flex-start;
+        }
+
+        .permission-description {
+          font-size: 11px;
+          color: lighten($text-secondary, 10%);
+          line-height: 1.3;
+          font-style: italic;
+        }
+      }
+    }
+
+    input[type="checkbox"]:checked + .checkbox-label {
+      background: rgba($primary-color, 0.08);
+      border: 1px solid rgba($primary-color, 0.2);
+
+      .permission-info .permission-name {
+        color: $primary-color;
+      }
+    }
+  }
+}
+
+// Responsive adjustments
+@media (max-width: 768px) {
+  .role-form {
+    .form-section {
+      padding: 20px;
+
+      h3 {
+        font-size: 16px;
+        margin-bottom: 16px;
+      }
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    .form-actions {
+      padding: 20px;
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .role-form-container {
+    padding: 16px;
+  }
+
+  .role-form {
+    .form-section {
+      padding: 16px;
+
+      h3 {
+        font-size: 15px;
+        margin-bottom: 12px;
+      }
+    }
+
+    .form-actions {
+      padding: 16px;
+    }
+
+    .permissions-container {
+      .permission-category {
+        .permissions-grid {
+          .permission-checkbox {
+            padding: 12px;
+            gap: 8px;
+
+            input[type="checkbox"] {
+              width: 16px;
+              height: 16px;
+            }
+
+            .checkbox-label {
+              font-size: 13px;
+
+              .permission-description {
+                font-size: 12px;
+              }
+
+              .permission-resource {
+                font-size: 11px;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

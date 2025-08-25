@@ -1,7 +1,7 @@
 const express = require('express');
 const permissionController = require('../controllers/permissionController');
-const { authenticate } = require('../middleware/auth');
-const { hasPermission } = require('../middleware/rbac');
+const { ensureAuthUnified } = require('../middleware/auth-unified');
+const { hasPermission } = require('../middleware/rbac-unified');
 const { validateObjectId, validateRequest } = require('../middleware/validation');
 const { logUserAction } = require('../middleware/audit');
 const permissionValidators = require('../validators/permissionValidators');
@@ -9,7 +9,7 @@ const { PERMISSIONS, ACTIONS, RESOURCES, SEVERITY } = require('../utils/constant
 
 const router = express.Router();
 
-router.use(authenticate);
+router.use(ensureAuthUnified);
 
 router.get('/meta/resources',
   hasPermission(PERMISSIONS.PERMISSION_READ),

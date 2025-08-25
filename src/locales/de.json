@@ -54,6 +54,7 @@
       "refresh_token_missing": "Aktualisierungstoken fehlt",
       "invalid_refresh_token": "Ungültiges Aktualisierungstoken",
       "invalid_session": "Ungültige Sitzung",
+      "account_not_found": "Konto nicht gefunden",
       "account_locked": "Konto ist gesperrt",
       "account_locked_dynamic": "Ihr Konto ist gesperrt. Bitte versuchen Sie es in {{minute}} Min. {{seconds}} Sek. erneut",
       "account_inactive": "Konto ist inaktiv",

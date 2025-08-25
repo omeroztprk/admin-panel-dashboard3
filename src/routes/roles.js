@@ -1,7 +1,7 @@
 const express = require('express');
 const roleController = require('../controllers/roleController');
-const { authenticate } = require('../middleware/auth');
-const { hasPermission } = require('../middleware/rbac');
+const { ensureAuthUnified } = require('../middleware/auth-unified');
+const { hasPermission } = require('../middleware/rbac-unified');
 const { validateObjectId, validateRequest } = require('../middleware/validation');
 const { logUserAction } = require('../middleware/audit');
 const roleValidators = require('../validators/roleValidators');
@@ -9,7 +9,8 @@ const { PERMISSIONS, ACTIONS, RESOURCES, SEVERITY } = require('../utils/constant
 
 const router = express.Router();
 
-router.use(authenticate);
+// Tek unified middleware kullan
+router.use(ensureAuthUnified);
 
 router.get('/',
   hasPermission(PERMISSIONS.ROLE_READ),

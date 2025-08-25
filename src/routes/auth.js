@@ -1,6 +1,7 @@
 const express = require('express');
 const authController = require('../controllers/authController');
 const { authenticate, refreshTokenAuth, precheckAccountLock } = require('../middleware/auth');
+const { ensureAuthUnified } = require('../middleware/auth-unified');
 const { validateObjectId, validateRequest } = require('../middleware/validation');
 const { limiter } = require('../middleware/security');
 const { logUserAction } = require('../middleware/audit');
@@ -43,7 +44,7 @@ router.post('/refresh-token',
   authController.refreshToken
 );
 
-router.use(authenticate);
+router.use(ensureAuthUnified);
 
 router.post('/logout',
   authValidators.logout,
@@ -53,6 +54,7 @@ router.post('/logout',
 );
 
 router.post('/logout-all',
+  ensureAuthUnified,
   logUserAction(ACTIONS.LOGOUT, RESOURCES.AUTH, SEVERITY.MEDIUM),
   authController.logoutAll
 );
@@ -76,10 +78,12 @@ router.patch('/change-password',
 );
 
 router.get('/sessions',
+  ensureAuthUnified, // Unified auth middleware kullanarak SSO bilgilerini doğru şekilde aktar
   authController.getActiveSessions
 );
 
 router.delete('/sessions/:tokenId',
+  ensureAuthUnified,
   validateObjectId('tokenId'),
   logUserAction(ACTIONS.DELETE, RESOURCES.AUTH, SEVERITY.MEDIUM),
   authController.revokeSession

@@ -1,7 +1,7 @@
 const express = require('express');
+const { ensureAuthUnified } = require('../middleware/auth-unified');
+const rbac = require('../middleware/rbac-unified');
 const userController = require('../controllers/userController');
-const { authenticate } = require('../middleware/auth');
-const { hasPermission, isSelfOrHasPermission } = require('../middleware/rbac');
 const { validateObjectId, validateRequest } = require('../middleware/validation');
 const { logUserAction } = require('../middleware/audit');
 const userValidators = require('../validators/userValidators');
@@ -9,10 +9,10 @@ const { PERMISSIONS, ACTIONS, RESOURCES, SEVERITY } = require('../utils/constant
 
 const router = express.Router();
 
-router.use(authenticate);
+router.use(ensureAuthUnified);
 
 router.get('/',
-  hasPermission(PERMISSIONS.USER_READ),
+  rbac.hasPermission(PERMISSIONS.USER_READ),
   userValidators.getUsersQuery,
   validateRequest,
   userController.getUsers
@@ -20,18 +20,18 @@ router.get('/',
 
 router.get('/:id',
   validateObjectId(),
-  isSelfOrHasPermission(PERMISSIONS.USER_READ),
+  rbac.isSelfOrHasPermission(PERMISSIONS.USER_READ),
   userController.getUserById
 );
 
 router.get('/:id/permissions',
   validateObjectId(),
-  isSelfOrHasPermission(PERMISSIONS.USER_READ),
+  rbac.isSelfOrHasPermission(PERMISSIONS.USER_READ),
   userController.getUserPermissions
 );
 
 router.post('/',
-  hasPermission(PERMISSIONS.USER_CREATE),
+  rbac.hasPermission(PERMISSIONS.USER_CREATE),
   userValidators.createUser,
   validateRequest,
   logUserAction(ACTIONS.CREATE, RESOURCES.USER, SEVERITY.MEDIUM),
@@ -40,7 +40,7 @@ router.post('/',
 
 router.patch('/:id',
   validateObjectId(),
-  isSelfOrHasPermission(PERMISSIONS.USER_UPDATE),
+  rbac.isSelfOrHasPermission(PERMISSIONS.USER_UPDATE),
   userValidators.updateUser,
   validateRequest,
   logUserAction(ACTIONS.UPDATE, RESOURCES.USER, SEVERITY.MEDIUM),
@@ -49,32 +49,25 @@ router.patch('/:id',
 
 router.delete('/:id',
   validateObjectId(),
-  hasPermission(PERMISSIONS.USER_DELETE),
+  rbac.hasPermission(PERMISSIONS.USER_DELETE),
   logUserAction(ACTIONS.DELETE, RESOURCES.USER, SEVERITY.HIGH),
   userController.deleteUser
 );
 
 router.patch('/:id/status',
   validateObjectId(),
-  hasPermission(PERMISSIONS.USER_MANAGE),
+  rbac.hasPermission(PERMISSIONS.USER_MANAGE),
   userValidators.toggleStatus,
   validateRequest,
   logUserAction(ACTIONS.TOGGLE, RESOURCES.USER, SEVERITY.MEDIUM),
   userController.toggleUserStatus
 );
 
-router.patch('/:id/roles',
-  validateObjectId(),
-  hasPermission(PERMISSIONS.USER_MANAGE),
-  userValidators.assignRoles,
-  validateRequest,
-  logUserAction(ACTIONS.ASSIGN, RESOURCES.USER, SEVERITY.HIGH),
-  userController.assignRoles
-);
+router.put('/:id/roles', ensureAuthUnified, rbac.hasPermission('user:update'), userController.assignRoles);
 
 router.patch('/:id/permissions',
   validateObjectId(),
-  hasPermission(PERMISSIONS.USER_MANAGE),
+  rbac.hasPermission(PERMISSIONS.USER_MANAGE),
   userValidators.assignPermissions,
   validateRequest,
   logUserAction(ACTIONS.ASSIGN, RESOURCES.USER, SEVERITY.HIGH),
@@ -83,7 +76,7 @@ router.patch('/:id/permissions',
 
 router.patch('/:id/reset-password',
   validateObjectId(),
-  hasPermission(PERMISSIONS.USER_MANAGE),
+  rbac.hasPermission(PERMISSIONS.USER_MANAGE),
   userValidators.resetPassword,
   validateRequest,
   logUserAction(ACTIONS.UPDATE, RESOURCES.USER, SEVERITY.CRITICAL),
@@ -92,7 +85,7 @@ router.patch('/:id/reset-password',
 
 router.patch('/:id/unlock',
   validateObjectId(),
-  hasPermission(PERMISSIONS.USER_MANAGE),
+  rbac.hasPermission(PERMISSIONS.USER_MANAGE),
   logUserAction(ACTIONS.UNLOCK, RESOURCES.USER, SEVERITY.MEDIUM),
   userController.unlockUser
 );

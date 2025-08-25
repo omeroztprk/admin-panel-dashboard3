@@ -1,0 +1,175 @@
+<div class="profile-container">
+  <div class="header">
+    <h1 class="title">Profil</h1>
+  </div>
+
+  <div class="profile-content">
+    <div class="profile-card" *ngIf="user">
+      <div class="profile-header">
+        <div class="profile-avatar">
+          {{ getUserInitials() }}
+        </div>
+        <div class="profile-info">
+          <h2>{{ user.firstName }} {{ user.lastName }}</h2>
+          <p>{{ user.email }}</p>
+        </div>
+      </div>
+
+      <div class="profile-form">
+        <form [formGroup]="form" (ngSubmit)="submit()">
+          <!-- Personal Information Section -->
+          <div class="form-section">
+            <h3 class="section-title">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                <circle cx="12" cy="7" r="4"></circle>
+              </svg>
+              Kişisel Bilgiler
+            </h3>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="firstName">
+                  Ad <span class="required">*</span>
+                </label>
+                <div class="input-wrapper">
+                  <svg class="input-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    stroke-width="2">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="12" cy="7" r="4"></circle>
+                  </svg>
+                  <input id="firstName" type="text" formControlName="firstName" placeholder="Adınızı girin"
+                    [class.error]="form.get('firstName')?.invalid && form.get('firstName')?.touched" />
+                </div>
+                <div class="field-error" *ngIf="form.get('firstName')?.invalid && form.get('firstName')?.touched">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="15" y1="9" x2="9" y2="15"></line>
+                    <line x1="9" y1="9" x2="15" y2="15"></line>
+                  </svg>
+                  <span *ngIf="form.get('firstName')?.errors?.['required']">Ad alanı zorunludur</span>
+                  <span *ngIf="form.get('firstName')?.errors?.['minlength']">Ad en az 2 karakter olmalıdır</span>
+                  <span *ngIf="form.get('firstName')?.errors?.['maxlength']">Ad en fazla 50 karakter olabilir</span>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="lastName">
+                  Soyad <span class="required">*</span>
+                </label>
+                <div class="input-wrapper">
+                  <svg class="input-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    stroke-width="2">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="12" cy="7" r="4"></circle>
+                  </svg>
+                  <input id="lastName" type="text" formControlName="lastName" placeholder="Soyadınızı girin"
+                    [class.error]="form.get('lastName')?.invalid && form.get('lastName')?.touched" />
+                </div>
+                <div class="field-error" *ngIf="form.get('lastName')?.invalid && form.get('lastName')?.touched">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="15" y1="9" x2="9" y2="15"></line>
+                    <line x1="9" y1="9" x2="15" y2="15"></line>
+                  </svg>
+                  <span *ngIf="form.get('lastName')?.errors?.['required']">Soyad alanı zorunludur</span>
+                  <span *ngIf="form.get('lastName')?.errors?.['minlength']">Soyad en az 2 karakter olmalıdır</span>
+                  <span *ngIf="form.get('lastName')?.errors?.['maxlength']">Soyad en fazla 50 karakter olabilir</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Profile Information Section -->
+          <div class="form-section" formGroupName="profile">
+            <h3 class="section-title">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path
+                  d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1 1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z">
+                </path>
+              </svg>
+              Profil Ayarları
+            </h3>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="phone">Telefon</label>
+                <div class="input-wrapper">
+                  <svg class="input-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    stroke-width="2">
+                    <path
+                      d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z">
+                    </path>
+                  </svg>
+                  <input id="phone" type="tel" formControlName="phone" placeholder="Telefon numaranızı girin" />
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="timezone">Zaman Dilimi</label>
+                <div class="input-wrapper">
+                  <svg class="input-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <polyline points="12,6 12,12 16,14"></polyline>
+                  </svg>
+                  <select id="timezone" formControlName="timezone">
+                    <option value="">Zaman dilimi seçin</option>
+                    <option value="Europe/Istanbul">Turkey (GMT+3)</option>
+                    <option value="Europe/London">London (GMT+0)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="language">Dil</label>
+                <div class="input-wrapper">
+                  <svg class="input-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    stroke-width="2">
+                    <path d="M4 12a8 8 0 1 1 8 8 8 8 0 0 1-8-8z"></path>
+                    <path d="m12 2v20"></path>
+                    <path d="m8 12h8"></path>
+                  </svg>
+                  <select id="language" formControlName="language">
+                    <option value="tr">Türkçe</option>
+                    <option value="en">English</option>
+                    <option value="de">Deutsch</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+
+          </div>
+
+          <!-- Success/Error Messages -->
+          <div class="success-message" *ngIf="success">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <path d="M8 12l3 3 6-6"></path>
+            </svg>
+            {{ success }}
+          </div>
+
+          <div class="error-message" *ngIf="error">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="15" y1="9" x2="9" y2="15"></line>
+              <line x1="9" y1="9" x2="15" y2="15"></line>
+            </svg>
+            {{ error }}
+          </div>
+
+          <!-- Form Actions -->
+          <div class="form-actions">
+            <button type="submit" class="submit-btn" [disabled]="saving" [class.loading]="saving">
+              <span *ngIf="!saving">Profili Güncelle</span>
+              <div *ngIf="saving" class="spinner"></div>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>

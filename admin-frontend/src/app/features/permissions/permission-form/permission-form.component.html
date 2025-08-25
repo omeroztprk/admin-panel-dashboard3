@@ -1,0 +1,175 @@
+<div class="permission-form-container">
+  <!-- Header -->
+  <div class="header">
+    <div class="breadcrumb">
+      <button class="btn-link" (click)="cancel()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="15,18 9,12 15,6"></polyline>
+        </svg>
+        İzinler
+      </button>
+      <span class="separator">/</span>
+      <span>{{ isEditMode ? 'Düzenle' : 'Yeni İzin' }}</span>
+    </div>
+  </div>
+
+  <!-- Error Message -->
+  <div *ngIf="error" class="alert alert-error" role="alert">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="12" r="10"></circle>
+      <line x1="15" y1="9" x2="9" y2="15"></line>
+      <line x1="9" y1="9" x2="15" y2="15"></line>
+    </svg>
+    {{ error }}
+  </div>
+
+  <!-- System Permission Warning -->
+  <div *ngIf="isEditMode && permission?.isSystem" class="alert alert-warning" role="alert">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+      <line x1="12" y1="9" x2="12" y2="13"></line>
+      <line x1="12" y1="17" x2="12.01" y2="17"></line>
+    </svg>
+    Bu bir sistem iznidir ve düzenlenemez. Sadece görüntüleme amaçlıdır.
+  </div>
+
+  <!-- Loading -->
+  <div *ngIf="loading" class="loading-container">
+    <div class="spinner"></div>
+    <span>İzin bilgileri yükleniyor...</span>
+  </div>
+
+  <!-- Form -->
+  <div *ngIf="!loading" class="form-container">
+    <form [formGroup]="permissionForm" (ngSubmit)="onSubmit()" class="permission-form">
+      <!-- Basic Information -->
+      <div class="form-section">
+        <h3>Temel Bilgiler</h3>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="resource" class="required">Kaynak</label>
+            <select id="resource" formControlName="resource" [class.error]="isFieldInvalid('resource')"
+              class="form-control" [disabled]="!!(permission && permission.isSystem)" 
+              (change)="onResourceActionChange()">
+              <option value="">Kaynak seçiniz</option>
+              <option *ngFor="let resource of resources" [value]="resource">{{ resource }}</option>
+            </select>
+            <div *ngIf="isFieldInvalid('resource')" class="error-message">
+              {{ getFieldError('resource') }}
+            </div>
+            <small class="help-text">
+              Bu iznin uygulanacağı sistem kaynağı.
+            </small>
+          </div>
+
+          <div class="form-group">
+            <label for="action" class="required">İşlem</label>
+            <select id="action" formControlName="action" [class.error]="isFieldInvalid('action')"
+              class="form-control" [disabled]="!!(permission && permission.isSystem)"
+              (change)="onResourceActionChange()">
+              <option value="">İşlem seçiniz</option>
+              <option *ngFor="let action of actions" [value]="action">{{ action }}</option>
+            </select>
+            <div *ngIf="isFieldInvalid('action')" class="error-message">
+              {{ getFieldError('action') }}
+            </div>
+            <small class="help-text">
+              Kaynak üzerinde gerçekleştirilebilecek işlem türü.
+            </small>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="displayName" class="required">Görünen Ad</label>
+            <input id="displayName" type="text" formControlName="displayName" [class.error]="isFieldInvalid('displayName')"
+              placeholder="İzin Görünen Adı" class="form-control" [disabled]="!!(permission && permission.isSystem)">
+            <div *ngIf="isFieldInvalid('displayName')" class="error-message">
+              {{ getFieldError('displayName') }}
+            </div>
+            <small class="help-text">
+              Kullanıcı arayüzünde gösterilecek izin adı.
+            </small>
+          </div>
+
+          <div class="form-group">
+            <label for="name">İzin Adı (Opsiyonel)</label>
+            <input id="name" type="text" formControlName="name" [class.error]="isFieldInvalid('name')"
+              placeholder="Otomatik oluşturulacak" class="form-control" [disabled]="!!(permission && permission.isSystem)">
+            <div *ngIf="isFieldInvalid('name')" class="error-message">
+              {{ getFieldError('name') }}
+            </div>
+            <small class="help-text">
+              Sistem içinde kullanılacak benzersiz izin adı. Boş bırakılırsa otomatik oluşturulur.
+            </small>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="category">Kategori</label>
+            <select id="category" formControlName="category" class="form-control" [disabled]="!!(permission && permission.isSystem)">
+              <option value="">Kategori seçiniz (opsiyonel)</option>
+              <option *ngFor="let category of categories" [value]="category">{{ formatCategory(category) }}</option>
+            </select>
+            <small class="help-text">
+              İznin ait olduğu kategori. Gruplama için kullanılır.
+            </small>
+          </div>
+
+          <div class="form-group">
+            <label class="checkbox-label">
+              <input type="checkbox" formControlName="isActive" [disabled]="!!(permission && permission.isSystem)">
+              <span class="checkbox-custom"></span>
+              Aktif
+            </label>
+            <small class="help-text">
+              Pasif izinler kullanıcılara atanamaz ve etki etmez.
+            </small>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="description">Açıklama</label>
+          <textarea id="description" formControlName="description" [class.error]="isFieldInvalid('description')"
+            placeholder="İznin detaylı açıklaması..." class="form-control" rows="3" 
+            [disabled]="!!(permission && permission.isSystem)"></textarea>
+          <div *ngIf="isFieldInvalid('description')" class="error-message">
+            {{ getFieldError('description') }}
+          </div>
+          <small class="help-text">
+            İznin ne yaptığını açıklayan detaylı bilgi.
+          </small>
+        </div>
+      </div>
+
+      <!-- Preview Section -->
+      <div class="form-section">
+        <h3>Önizleme</h3>
+        <div class="form-group">
+          <label>Oluşturulacak İzin Adı</label>
+          <div class="preview-box">
+            <span class="permission-preview">{{ getPreviewPermissionName() }}</span>
+          </div>
+          <small class="help-text">
+            Bu izin sisteme {{ getPreviewPermissionName() }} adıyla kaydedilecektir.
+          </small>
+        </div>
+      </div>
+
+      <!-- Form Actions -->
+      <div class="form-actions">
+        <button type="button" class="btn btn-outline" (click)="cancel()" [disabled]="saving">
+          İptal
+        </button>
+
+        <button type="submit" class="btn btn-primary" [disabled]="saving || permissionForm.invalid || !!(permission && permission.isSystem)">
+          <div *ngIf="saving" class="spinner small"></div>
+          <span *ngIf="!saving">{{ isEditMode ? 'Güncelle' : 'Oluştur' }}</span>
+          <span *ngIf="saving">{{ isEditMode ? 'Güncelleniyor...' : 'Oluşturuluyor...' }}</span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>

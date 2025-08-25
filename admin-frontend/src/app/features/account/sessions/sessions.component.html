@@ -1,0 +1,172 @@
+<div class="sessions-container">
+  <div class="header">
+    <h1 class="title">Oturumlar</h1>
+  </div>
+
+  <div class="sessions-content">
+    <!-- SSO Mode Warning -->
+    <div class="alert alert-info" *ngIf="false">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"></circle>
+        <line x1="12" y1="8" x2="12" y2="16"></line>
+        <line x1="12" y1="20" x2="12.01" y2="20"></line>
+      </svg>
+      <div>
+        <strong>Oturum Yönetimi Devre Dışı</strong><br>
+        SSO modunda oturum yönetimi identity provider tarafından sağlanır.
+        Oturumları sonlandırmak için kimlik sağlayıcı panelini kullanınız.
+      </div>
+      <button class="btn btn-outline" (click)="goToDashboard()">Dashboard'a Dön</button>
+    </div>
+
+    <div class="sessions-card" *ngIf="isSessionManagementAvailable">
+      <div class="sessions-header">
+        <div class="sessions-info">
+          <div class="sessions-left">
+            <div class="sessions-icon" aria-hidden="true">
+              <!-- İkon (örnek kalkan/oturum simgesi) -->
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 2l7 4v6c0 5-3.5 9-7 10-3.5-1-7-5-7-10V6l7-4z"></path>
+                <path d="M9 12l2 2 4-4"></path>
+              </svg>
+            </div>
+
+            <div class="info-content">
+              <h2>Aktif Oturumlar</h2>
+              <p>Hesabınıza bağlı tüm cihazları ve oturumları görüntüleyebilirsiniz.</p>
+            </div>
+          </div>
+
+          <div class="sessions-actions">
+            <button class="revoke-all-btn" (click)="revokeAll()" [disabled]="loading || sessions.length === 0">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                <polyline points="16,17 21,12 16,7"></polyline>
+                <line x1="21" y1="12" x2="9" y2="12"></line>
+              </svg>
+              Tümünü Sonlandır
+            </button>
+          </div>
+        </div>
+      </div>
+
+
+      <div class="sessions-body">
+        <!-- Loading State -->
+        <div class="sessions-loading" *ngIf="loading">
+          <div class="spinner"></div>
+          <div class="loading-text">Oturumlar yükleniyor...</div>
+        </div>
+
+        <!-- Error Message -->
+        <div class="error-message" *ngIf="error">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="15" y1="9" x2="9" y2="15"></line>
+            <line x1="9" y1="9" x2="15" y2="15"></line>
+          </svg>
+          {{ error }}
+        </div>
+
+        <!-- Sessions List -->
+        <div class="sessions-list" *ngIf="!loading && !error && sessions.length > 0">
+          <div class="session-item" *ngFor="let session of sessions" [class.current-session]="session.isCurrent">
+            <div class="session-header">
+              <div class="session-title">
+                <div class="device-icon">
+                  <svg *ngIf="session.device?.type === 'mobile'" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    stroke-width="2">
+                    <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+                    <line x1="12" y1="18" x2="12.01" y2="18"></line>
+                  </svg>
+                  <svg *ngIf="session.device?.type === 'tablet'" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    stroke-width="2">
+                    <rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect>
+                    <line x1="12" y1="18" x2="12.01" y2="18"></line>
+                  </svg>
+                  <svg *ngIf="!session.device?.type || session.device?.type === 'desktop'" viewBox="0 0 24 24"
+                    fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                    <line x1="8" y1="21" x2="16" y2="21"></line>
+                    <line x1="12" y1="17" x2="12" y2="21"></line>
+                  </svg>
+                </div>
+                <div class="session-device">
+                  <div class="device-name">
+                    {{ session.device?.name || session.device?.browser || 'Bilinmeyen Cihaz' }}
+                  </div>
+                  <div class="device-info">
+                    {{ session.device?.os }} • {{ session.ip }}
+                  </div>
+                </div>
+              </div>
+              <div class="session-badge" *ngIf="session.isCurrent">
+                Mevcut
+              </div>
+            </div>
+
+            <div class="session-details">
+              <div class="session-meta">
+                <div class="meta-item">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <polyline points="12,6 12,12 16,14"></polyline>
+                  </svg>
+                  <span class="meta-label">Giriş:</span>
+                  <span class="meta-value">{{ session.createdAt | date:'dd.MM.yyyy HH:mm' }}</span>
+                </div>
+                <div class="meta-item">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <polyline points="12,6 12,12 16,14"></polyline>
+                  </svg>
+                  <span class="meta-label">Son:</span>
+                  <span class="meta-value">{{ session.lastActivity | date:'dd.MM.yyyy HH:mm' }}</span>
+                </div>
+                <div class="meta-item" *ngIf="session.location?.city">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                    <circle cx="12" cy="10" r="3"></circle>
+                  </svg>
+                  <span class="meta-label">Konum:</span>
+                  <span class="meta-value">{{ session.location.city }}, {{ session.location.country
+                    }}</span>
+                </div>
+              </div>
+
+              <div class="session-actions" *ngIf="!session.isCurrent">
+                <button class="revoke-btn" [class.loading]="revoking[session.id]" [disabled]="revoking[session.id]"
+                  (click)="revoke(session.id)">
+                  <span *ngIf="!revoking[session.id]">Sonlandır</span>
+                  <div *ngIf="revoking[session.id]" class="spinner"></div>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Empty State -->
+        <div class="empty-state" *ngIf="!loading && !error && sessions.length === 0">
+          <div class="empty-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+              <line x1="8" y1="21" x2="16" y2="21"></line>
+              <line x1="12" y1="17" x2="12" y2="21"></line>
+            </svg>
+          </div>
+          <h3 class="empty-title">Aktif Oturum Bulunamadı</h3>
+          <p class="empty-description">Şu anda hesabınızda aktif bir oturum bulunmuyor.</p>
+        </div>
+
+        <!-- Success message for revoke all -->
+        <div class="success-message" *ngIf="!loading && !error && sessions.length === 0 && !loading">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+            <polyline points="22,4 12,14.01 9,11.01"></polyline>
+          </svg>
+          Tüm oturumlar başarıyla sonlandırıldı. Yönlendiriliyorsunuz...
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

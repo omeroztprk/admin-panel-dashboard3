@@ -51,31 +51,49 @@ const createUser = asyncHandler(async (req, res) => {
   return response.created(res, req.t(MESSAGES.USER.CREATED), { user: sanitizeObject(user) });
 });
 
-const updateUser = asyncHandler(async (req, res) => {
-  const updates = {
-    ...req.body,
-    metadata: { updatedBy: req.user._id }
-  };
+async function updateUser(req, res) {
+  try {
+    const result = await userService.updateUser(req.params.id, req.body);
+    return response.success(res, req.t(MESSAGES.GENERAL.SUCCESS), result);
+  } catch (err) {
+    const status = err.statusCode || 500;
+    // message önce, status sonra
+    return response.error(res, err.message || 'Internal server error', status);
+  }
+}
 
-  const user = await userService.updateUser(req.params.id, updates);
-  return response.success(res, req.t(MESSAGES.USER.UPDATED), { user: sanitizeObject(user) });
-});
+async function deleteUser(req, res) {
+  try {
+    await userService.deleteUser(req.params.id);
+    return response.success(res, req.t(MESSAGES.GENERAL.SUCCESS), { deleted: true });
+  } catch (err) {
+    const status = err.statusCode || 500;
+    // message önce, status sonra
+    return response.error(res, err.message || 'Internal server error', status);
+  }
+}
 
-const deleteUser = asyncHandler(async (req, res) => {
-  await tokenService.blacklistAllUserTokens(req.params.id);
-  await userService.deleteUser(req.params.id);
-  return response.success(res, req.t(MESSAGES.USER.DELETED));
-});
+async function toggleUserStatus(req, res) {
+  try {
+    const result = await userService.toggleUserStatus(req.params.id, req.body.isActive, req.user?._id);
+    return response.success(res, req.t(MESSAGES.GENERAL.SUCCESS), result);
+  } catch (err) {
+    const status = err.statusCode || 500;
+    // message önce, status sonra
+    return response.error(res, err.message || 'Internal server error', status);
+  }
+}
 
-const toggleUserStatus = asyncHandler(async (req, res) => {
-  const user = await userService.toggleUserStatus(req.params.id, req.body.isActive, req.user._id);
-  return response.success(res, req.t(MESSAGES.USER.STATUS_UPDATED), { user: sanitizeObject(user) });
-});
-
-const assignRoles = asyncHandler(async (req, res) => {
-  const user = await userService.assignRoles(req.params.id, req.body.roles, req.user._id);
-  return response.success(res, req.t(MESSAGES.USER.ROLES_ASSIGNED), { user: sanitizeObject(user) });
-});
+async function assignRoles(req, res) {
+  try {
+    const result = await userService.assignRoles(req.params.id, req.body.roles || [], req.user?._id);
+    return response.success(res, result);
+  } catch (err) {
+    const status = err.statusCode || 500;
+    // Proje yapısına uygun: mesajı doğrudan ilet, statüyü koru
+    return response.error(res, err.message || 'Internal server error', status);
+  }
+}
 
 const assignPermissions = asyncHandler(async (req, res) => {
   const user = await userService.assignPermissions(req.params.id, req.body.permissions, req.user._id);

@@ -1,0 +1,297 @@
+<div class="permission-list-container">
+  <div class="header">
+    <div class="title-section">
+      <h1>İzinler</h1>
+      <p>Sistem izinlerini yönetin</p>
+    </div>
+    <div class="actions">
+      <button 
+        *ngIf="canCreate" 
+        class="btn btn-primary" 
+        (click)="createPermission()"
+        aria-label="Yeni izin ekle">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="8" x2="12" y2="16"></line>
+          <line x1="8" y1="12" x2="16" y2="12"></line>
+        </svg>
+        Yeni İzin
+      </button>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="filters-card">
+    <div class="filters-row">
+      <div class="filter-group">
+        <label for="search">Ara</label>
+        <input 
+          id="search"
+          type="text" 
+          [(ngModel)]="searchTerm" 
+          placeholder="İzin adı ile ara..."
+          (keyup.enter)="onSearch()"
+          class="form-control"
+          autocomplete="off">
+      </div>
+
+      <div class="filter-group">
+        <label for="resource">Kaynak</label>
+        <select id="resource" [(ngModel)]="selectedResource" class="form-control">
+          <option value="">Tümü</option>
+          <option *ngFor="let resource of resources" [value]="resource">{{ resource }}</option>
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label for="action">İşlem</label>
+        <select id="action" [(ngModel)]="selectedAction" class="form-control">
+          <option value="">Tümü</option>
+          <option *ngFor="let action of actions" [value]="action">{{ action }}</option>
+        </select>
+      </div>
+      
+      <div class="filter-group">
+        <label for="category">Kategori</label>
+        <select id="category" [(ngModel)]="selectedCategory" class="form-control">
+          <option value="">Tümü</option>
+          <option *ngFor="let category of categories" [value]="category">{{ formatCategory(category) }}</option>
+        </select>
+      </div>
+      
+      <div class="filter-group">
+        <label for="status">Durum</label>
+        <select id="status" [(ngModel)]="selectedStatus" class="form-control">
+          <option value="">Tümü</option>
+          <option value="true">Aktif</option>
+          <option value="false">Pasif</option>
+        </select>
+      </div>
+      
+      <div class="filter-actions">
+        <button class="btn btn-secondary" (click)="onSearch()" type="button">Filtrele</button>
+        <button class="btn btn-outline" (click)="clearFilters()" type="button">Temizle</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Error Message -->
+  <div *ngIf="error" class="alert alert-error" role="alert">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+      <circle cx="12" cy="12" r="10"></circle>
+      <line x1="15" y1="9" x2="9" y2="15"></line>
+      <line x1="9" y1="9" x2="15" y2="15"></line>
+    </svg>
+    {{ error }}
+  </div>
+
+  <!-- Loading -->
+  <div *ngIf="loading" class="loading-container" role="status" aria-live="polite">
+    <div class="spinner" aria-hidden="true"></div>
+    <span>İzinler yükleniyor...</span>
+  </div>
+
+  <!-- Permissions Table -->
+  <div *ngIf="!loading" class="table-container">
+    <table class="permissions-table" role="table">
+      <thead>
+        <tr role="row">
+          <th role="columnheader" (click)="onSort('name')" class="sortable" tabindex="0" 
+              (keyup.enter)="onSort('name')" (keyup.space)="onSort('name')"
+              [attr.aria-sort]="filters.sort === 'name' ? 'ascending' : filters.sort === '-name' ? 'descending' : 'none'">
+            İzin Adı
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <polyline points="6,9 12,15 18,9"></polyline>
+            </svg>
+          </th>
+          <th role="columnheader" (click)="onSort('resource')" class="sortable" tabindex="0"
+              (keyup.enter)="onSort('resource')" (keyup.space)="onSort('resource')"
+              [attr.aria-sort]="filters.sort === 'resource' ? 'ascending' : filters.sort === '-resource' ? 'descending' : 'none'">
+            Kaynak
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <polyline points="6,9 12,15 18,9"></polyline>
+            </svg>
+          </th>
+          <th role="columnheader" (click)="onSort('action')" class="sortable" tabindex="0"
+              (keyup.enter)="onSort('action')" (keyup.space)="onSort('action')"
+              [attr.aria-sort]="filters.sort === 'action' ? 'ascending' : filters.sort === '-action' ? 'descending' : 'none'">
+            İşlem
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <polyline points="6,9 12,15 18,9"></polyline>
+            </svg>
+          </th>
+          <th role="columnheader" (click)="onSort('category')" class="sortable" tabindex="0"
+              (keyup.enter)="onSort('category')" (keyup.space)="onSort('category')"
+              [attr.aria-sort]="filters.sort === 'category' ? 'ascending' : filters.sort === '-category' ? 'descending' : 'none'">
+            Kategori
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <polyline points="6,9 12,15 18,9"></polyline>
+            </svg>
+          </th>
+          <th role="columnheader">Açıklama</th>
+          <th role="columnheader">Tür</th>
+          <th role="columnheader" (click)="onSort('isActive')" class="sortable" tabindex="0"
+              (keyup.enter)="onSort('isActive')" (keyup.space)="onSort('isActive')"
+              [attr.aria-sort]="filters.sort === 'isActive' ? 'ascending' : filters.sort === '-isActive' ? 'descending' : 'none'">
+            Durum
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <polyline points="6,9 12,15 18,9"></polyline>
+            </svg>
+          </th>
+          <th role="columnheader" class="actions-col">İşlemler</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let permission of permissions; trackBy: trackByPermissionId" role="row">
+          <td role="gridcell" class="permission-info">
+            <div class="permission-icon" [attr.aria-label]="'Permission icon for ' + (permission.displayName || permission.name)">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                <circle cx="12" cy="16" r="1"></circle>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+              </svg>
+            </div>
+            <div>
+              <strong>{{ permission.displayName || permission.name }}</strong>
+              <small *ngIf="permission.displayName && permission.name !== permission.displayName" class="permission-name">{{ permission.name }}</small>
+            </div>
+          </td>
+          <td role="gridcell">
+            <span class="resource-badge">{{ permission.resource }}</span>
+          </td>
+          <td role="gridcell">
+            <span class="action-badge">{{ permission.action }}</span>
+          </td>
+          <td role="gridcell">{{ formatCategory(permission.category || '') }}</td>
+          <td role="gridcell">
+            <span *ngIf="permission.description" class="description-text">{{ permission.description }}</span>
+            <span *ngIf="!permission.description" class="text-muted">Açıklama yok</span>
+          </td>
+          <td role="gridcell">
+            <span class="permission-type-badge" [class]="getPermissionTypeClass(permission)" 
+                  [attr.aria-label]="'Permission type: ' + getPermissionType(permission)">
+              {{ getPermissionType(permission) }}
+            </span>
+          </td>
+          <td role="gridcell">
+            <span class="status-badge" [class]="getStatusClass(permission)" 
+                  [attr.aria-label]="'Status: ' + getPermissionStatus(permission)">
+              {{ getPermissionStatus(permission) }}
+            </span>
+          </td>
+          <td role="gridcell" class="actions-cell">
+            <div class="action-buttons" role="group" [attr.aria-label]="'Actions for permission ' + (permission.displayName || permission.name)">
+              <button 
+                class="btn-icon" 
+                (click)="viewPermission(permission)"
+                title="Detayları görüntüle"
+                [attr.aria-label]="'View details of permission ' + (permission.displayName || permission.name)">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+              </button>
+              
+              <button 
+                *ngIf="canUpdate && !permission.isSystem"
+                class="btn-icon edit" 
+                (click)="editPermission(permission)"
+                title="Düzenle"
+                [attr.aria-label]="'Edit permission ' + (permission.displayName || permission.name)">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                </svg>
+              </button>
+              
+              <button 
+                *ngIf="canManage && !permission.isSystem"
+                class="btn-icon toggle" 
+                (click)="togglePermissionStatus(permission)"
+                [title]="permission.isActive ? 'Pasifleştir' : 'Aktifleştir'"
+                [attr.aria-label]="(permission.isActive ? 'Deactivate ' : 'Activate ') + 'permission ' + (permission.displayName || permission.name)">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                  <rect x="3" y="11" width="18" height="10" rx="2" ry="2"></rect>
+                  <circle cx="12" cy="16" r="1"></circle>
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                </svg>
+              </button>
+              
+              <button 
+                *ngIf="canDelete && !permission.isSystem"
+                class="btn-icon delete" 
+                (click)="deletePermission(permission)"
+                title="Sil"
+                [attr.aria-label]="'Delete permission ' + (permission.displayName || permission.name)">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                  <polyline points="3,6 5,6 21,6"></polyline>
+                  <path d="M19,6v14a2,2 0 0,1 -2,2H7a2,2 0 0,1 -2,-2V6m3,0V4a2,2 0 0,1 2,-2h4a2,2 0 0,1 2,2v2"></path>
+                </svg>
+              </button>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- Empty State -->
+    <div *ngIf="!loading && permissions.length === 0" class="empty-state" role="status">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" aria-hidden="true">
+        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+        <circle cx="12" cy="16" r="1"></circle>
+        <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+      </svg>
+      <h3>İzin bulunamadı</h3>
+      <p *ngIf="searchTerm || selectedResource || selectedAction || selectedCategory || selectedStatus !== ''">
+        Arama kriterlerinizle eşleşen izin bulunmuyor.
+      </p>
+      <p *ngIf="!searchTerm && !selectedResource && !selectedAction && !selectedCategory && selectedStatus === ''">
+        Henüz hiç izin bulunmuyor.
+      </p>
+      <button *ngIf="canCreate && !searchTerm && !selectedResource && !selectedAction && !selectedCategory && selectedStatus === ''" 
+              class="btn btn-primary" 
+              (click)="createPermission()">
+        İlk İzni Oluştur
+      </button>
+    </div>
+  </div>
+
+  <!-- Pagination -->
+  <nav *ngIf="totalPages > 1" class="pagination-container" role="navigation" aria-label="Sayfalama">
+    <div class="pagination-info">
+      {{ totalItems }} izinden {{ (currentPage - 1) * itemsPerPage + 1 }}-{{ 
+        Math.min(currentPage * itemsPerPage, totalItems) 
+      }} arası gösteriliyor
+    </div>
+    
+    <div class="pagination" role="group">
+      <button 
+        class="btn btn-outline" 
+        [disabled]="currentPage === 1"
+        (click)="onPageChange(currentPage - 1)"
+        aria-label="Önceki sayfa">
+        Önceki
+      </button>
+      
+      <ng-container *ngFor="let page of getPageNumbers(); let i = index">
+        <button 
+          class="btn"
+          [class.btn-primary]="page === currentPage"
+          [class.btn-outline]="page !== currentPage"
+          (click)="onPageChange(page)"
+          [attr.aria-label]="'Sayfa ' + page"
+          [attr.aria-current]="page === currentPage ? 'page' : null">
+          {{ page }}
+        </button>
+      </ng-container>
+      
+      <button 
+        class="btn btn-outline" 
+        [disabled]="currentPage === totalPages"
+        (click)="onPageChange(currentPage + 1)"
+        aria-label="Sonraki sayfa">
+        Sonraki
+      </button>
+    </div>
+  </nav>
+</div>

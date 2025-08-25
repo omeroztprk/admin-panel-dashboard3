@@ -62,6 +62,10 @@ const userSchema = new mongoose.Schema({
     ipAddress: String,
     userAgent: String,
   },
+  sso: {
+    provider: { type: String, enum: ['keycloak'], required: false },
+    keycloakId: { type: String }
+  },
 }, {
   timestamps: true,
   versionKey: false,
@@ -75,6 +79,7 @@ userSchema.index({ roles: 1 });
 userSchema.index({ loginAttempts: 1, lockoutUntil: 1 });
 userSchema.index({ 'profile.language': 1 });
 userSchema.index({ lastLogin: -1 });
+userSchema.index({ 'sso.keycloakId': 1 }, { sparse: true });
 
 userSchema.index({ firstName: 'text', lastName: 'text', email: 'text' }, {
   weights: { email: 10, firstName: 5, lastName: 5 },
