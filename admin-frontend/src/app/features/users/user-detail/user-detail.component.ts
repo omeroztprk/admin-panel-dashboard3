@@ -19,7 +19,6 @@ export class UserDetailComponent implements OnInit {
   userId = '';
   showDropdown = false;
 
-  // Permissions
   canUpdate = false;
   canDelete = false;
   canManage = false;
@@ -29,7 +28,7 @@ export class UserDetailComponent implements OnInit {
     private router: Router,
     private userService: UserService,
     private authService: AuthService
-  ) {}
+  ) { }
 
   ngOnInit() {
     this.userId = this.route.snapshot.params['id'];
@@ -42,13 +41,11 @@ export class UserDetailComponent implements OnInit {
     this.canUpdate = this.authService.hasPermission('user:update');
     this.canDelete = this.authService.hasPermission('user:delete');
     this.canManage = this.authService.hasPermission('user:manage');
-    
-    // Self-access kontrolü - her iki ID formatını da kontrol et
+
     this.authService.user$.pipe(take(1)).subscribe(currentUser => {
       const currentUserId = currentUser?._id || currentUser?.id;
       if (currentUserId === this.userId) {
-        this.canUpdate = true; // Kendi profilini güncelleyebilir
-        // Kendi hesabını silemez
+        this.canUpdate = true;
         this.canDelete = false;
       }
     });
@@ -57,7 +54,7 @@ export class UserDetailComponent implements OnInit {
   loadUser() {
     this.loading = true;
     this.error = '';
-    
+
     this.userService.getUserById(this.userId).subscribe({
       next: (response) => {
         this.user = response.data?.user || null;
@@ -72,7 +69,7 @@ export class UserDetailComponent implements OnInit {
 
   loadUserPermissions() {
     this.permissionsLoading = true;
-    
+
     this.userService.getUserPermissions(this.userId).subscribe({
       next: (response) => {
         this.userPermissions = response.data?.permissions || [];
@@ -82,13 +79,11 @@ export class UserDetailComponent implements OnInit {
         console.error('Failed to load user permissions:', error);
         this.userPermissions = [];
         this.permissionsLoading = false;
-        
-        // 401 hatası için redirect
+
         if (error.status === 401 && !this.authService.isDefaultSessionActive) {
           this.authService.hardLogout();
           this.router.navigate(['/login']);
         } else {
-          // Diğer hatalar için kullanıcıya bilgi ver - sadece console'a yazdırma
           console.warn('İzinler yüklenirken hata oluştu:', error?.error?.message || error?.message);
         }
       }
@@ -102,7 +97,7 @@ export class UserDetailComponent implements OnInit {
 
   toggleUserStatus() {
     if (!this.canManage || !this.user) return;
-    
+
     this.userService.toggleUserStatus(this.userId, !this.user.isActive).subscribe({
       next: () => {
         this.loadUser();
@@ -115,7 +110,7 @@ export class UserDetailComponent implements OnInit {
 
   deleteUser() {
     if (!this.canDelete || !this.user) return;
-    
+
     const fullName = `${this.user.firstName} ${this.user.lastName}`;
     if (confirm(`${fullName} kullanıcısını silmek istediğinizden emin misiniz?`)) {
       this.userService.deleteUser(this.userId).subscribe({
@@ -131,7 +126,7 @@ export class UserDetailComponent implements OnInit {
 
   unlockUser() {
     if (!this.canManage) return;
-    
+
     this.userService.unlockUser(this.userId).subscribe({
       next: () => {
         this.loadUser();
@@ -144,17 +139,16 @@ export class UserDetailComponent implements OnInit {
 
   resetPassword() {
     if (!this.canManage || !this.user) return;
-    
+
     const newPassword = prompt('Yeni şifreyi girin (min. 8 karakter, büyük/küçük harf, rakam ve özel karakter):');
     if (!newPassword) return;
-    
-    // Kompleks validasyon
+
     const strongPasswordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,128}$/;
     if (!strongPasswordRegex.test(newPassword)) {
       alert('Şifre en az 8 karakter olmalı; büyük/küçük harf, rakam ve özel karakter içermelidir');
       return;
     }
-    
+
     this.userService.resetPassword(this.userId, newPassword).subscribe({
       next: () => {
         alert('Şifre başarıyla sıfırlandı');
@@ -176,18 +170,14 @@ export class UserDetailComponent implements OnInit {
 
   getPermissionsByCategory() {
     const categories: { [key: string]: any[] } = {};
-    
+
     this.userPermissions.forEach(permission => {
-      // Backend'den gelen permissions normalizasyonu - tip güvenliği ile
       let permObj: any = permission;
-      
-      // Backend response'a göre farklı yapıları normalize et
+
       if (permission && typeof permission === 'object') {
-        // _id, name alanları varsa direkt kullan
         if ('_id' in permission && 'name' in permission) {
           permObj = permission;
-        } 
-        // nested permission objesi varsa
+        }
         else if ('permission' in permission && permission.permission) {
           permObj = permission.permission;
         }
@@ -199,21 +189,20 @@ export class UserDetailComponent implements OnInit {
         console.warn('Invalid permission object:', permission);
         return;
       }
-      
+
       const category = permObj?.category || 'Diğer';
       if (!categories[category]) {
         categories[category] = [];
       }
       categories[category].push(permObj);
     });
-    
-    // Kategorileri alfabetik sırala, Diğer'i en sona koy
+
     const sortedCategories = Object.keys(categories).sort((a, b) => {
       if (a === 'Diğer') return 1;
       if (b === 'Diğer') return -1;
       return a.localeCompare(b, 'tr');
     });
-    
+
     return sortedCategories.map(category => ({
       category,
       permissions: categories[category].sort((a, b) => {
@@ -224,10 +213,9 @@ export class UserDetailComponent implements OnInit {
     }));
   }
 
-  // Kategori adını "Audit Management" gibi Title Case'e çevir
   formatCategory(category: string): string {
     if (!category) return '';
-    if (category === 'Diğer') return category; // Türkçe "Other" sabit kalsın
+    if (category === 'Diğer') return category;
     return category
       .split('_')
       .filter(Boolean)
@@ -274,25 +262,24 @@ export class UserDetailComponent implements OnInit {
 
   getUserStatus(): string {
     if (!this.user) return '';
-    
+
     if (this.isUserLocked()) {
       return 'Kilitli';
     }
-    
+
     return this.user.isActive ? 'Aktif' : 'Pasif';
   }
 
   getStatusClass(): string {
     if (!this.user) return '';
-    
+
     if (this.isUserLocked()) {
       return 'locked';
     }
-    
+
     return this.user.isActive ? 'active' : 'inactive';
   }
 
-  // Metadata bilgilerinden email doğrulama kısmını kaldır
   getMetadataInfo(): { label: string; value: string; class?: string }[] {
     if (!this.user) return [];
 

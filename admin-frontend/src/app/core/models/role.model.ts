@@ -13,13 +13,13 @@ export interface Role {
   displayName: string;
   description?: string;
   priority: number;
-  permissions: Permission[] | string[]; // Populate edilmiş Permission objeleri veya ID'ler
+  permissions: Permission[] | string[];
   isActive: boolean;
   isSystem: boolean;
   createdAt?: string;
   updatedAt?: string;
   metadata?: RoleMetadata;
-  userCount?: number; // Virtual field
+  userCount?: number;
 }
 
 export interface RoleFilters {
@@ -31,7 +31,6 @@ export interface RoleFilters {
   sort?: string;
 }
 
-// Create/Update için minimal interface
 export interface CreateRoleRequest {
   name: string;
   displayName: string;
@@ -50,10 +49,9 @@ export interface UpdateRoleRequest {
   isActive?: boolean;
 }
 
-// Role-User assignment için
 export interface RoleUser {
   _id: string;
-  id?: string; // Alternatif ID field
+  id?: string;
   firstName: string;
   lastName: string;
   email: string;
@@ -62,5 +60,5 @@ export interface RoleUser {
   createdAt: string;
   fullName?: string;
   isLocked?: boolean;
-  lockoutUntil?: string; // Kilit süresi için
+  lockoutUntil?: string;
 }

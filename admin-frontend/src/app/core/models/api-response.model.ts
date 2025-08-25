@@ -20,7 +20,6 @@ export interface PaginatedResponse<T> {
   pagination: PaginationInfo;
 }
 
-// Common filter base interface
 export interface BaseFilters {
   search?: string;
   page?: number;
@@ -29,7 +28,6 @@ export interface BaseFilters {
   isActive?: boolean;
 }
 
-// Common metadata interface
 export interface BaseMetadata {
   createdBy?: string;
   updatedBy?: string;
@@ -37,7 +35,6 @@ export interface BaseMetadata {
   userAgent?: string;
 }
 
-// Common base entity
 export interface BaseEntity {
   _id: string;
   createdAt?: string;

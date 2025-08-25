@@ -2,10 +2,11 @@ const express = require('express');
 const passport = require('passport');
 const KeycloakStrategy = require('passport-keycloak-oauth2-oidc').Strategy;
 const { filterKeycloakRoles, extractRolesFromToken } = require('../utils/sso');
-const KeycloakRoleService = require('../services/keycloakRoleService');
+const KeycloakService = require('../services/keycloakService');
 const config = require('../config');
 const { standardizeUser, processKeycloakUser } = require('../middleware/auth-unified');
 const fetch = global.fetch || require('node-fetch');
+const logger = require('../utils/logger');
 
 const router = express.Router();
 
@@ -29,7 +30,7 @@ passport.use('keycloak', new KeycloakStrategy(
       const kcRoles = filterKeycloakRoles(kcAll, config.auth.keycloak.realm);
 
       const keycloakUserId = profile?.id || profile?._json?.sub;
-      const user = await KeycloakRoleService.updateUserKeycloakInfo(
+      const user = await KeycloakService.updateUserKeycloakInfo(
         keycloakUserId,
         kcRoles,
         profile?._json || profile
@@ -55,11 +56,11 @@ router.get('/keycloak', (req, res, next) => {
 router.get('/keycloak/callback', (req, res, next) => {
   passport.authenticate('keycloak', { failureRedirect: '/api/v1/auth/keycloak' }, (err, user, info) => {
     if (err) { 
-      console.error('Keycloak callback error:', err); 
+      logger.error('Keycloak callback error', { error: err?.message }); 
       return next(err); 
     }
     if (!user) { 
-      console.error('Keycloak authentication failed:', info); 
+      logger.warn('Keycloak authentication failed', { info }); 
       return res.redirect('/api/v1/auth/keycloak'); 
     }
     req.logIn(user, (loginErr) => {
@@ -88,7 +89,7 @@ router.get('/keycloak/logout', async (req, res) => {
       }).catch(() => {});
     }
   } catch (e) {
-    console.error('Keycloak backchannel logout error:', e?.message || e);
+    logger.warn('Keycloak backchannel logout error', { error: e?.message || e });
   } finally {
     req.logout(() => {
       req.session?.destroy(() => res.redirect(redirectAfter));
@@ -101,10 +102,10 @@ router.get('/keycloak/me', async (req, res) => {
     return res.status(401).json({ message: 'Not authenticated' });
   }
   try {
-    const unified = await processKeycloakUser(req.user, req); // pass req to allow session throttle
+    const unified = await processKeycloakUser(req.user, req);
     return res.json(standardizeUser(unified, 'sso'));
   } catch (error) {
-    console.error('Error in keycloak/me:', error);
+    logger.error('Error in keycloak/me', { error: error?.message, stack: error?.stack });
     return res.status(500).json({ message: 'Internal server error' });
   }
 });

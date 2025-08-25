@@ -5,7 +5,7 @@ const Permission = require('../models/Permission');
 const tokenService = require('../services/tokenService');
 const { ERRORS } = require('../utils/constants');
 const { normalizeEmail, hashPassword } = require('../utils/helpers');
-const KeycloakRoleService = require('./keycloakRoleService');
+const KeycloakService = require('./keycloakService');
 const { mapLocalRolesToKeycloak } = require('../utils/sso');
 
 const getUsers = async (filters = {}, options = {}) => {
@@ -124,7 +124,6 @@ const updateUser = async (userId, updates) => {
     throw error;
   }
 
-  // SSO kullanıcı: profil güncellemeleri Keycloak üzerinden
   if (user.sso?.provider === 'keycloak') {
     if (updates.password) {
       const error = new Error('errors.sso.password_via_keycloak');
@@ -143,13 +142,12 @@ const updateUser = async (userId, updates) => {
       }
     }
 
-    await KeycloakRoleService.kcUpdateUserProfile(user.sso.keycloakId, {
+    await KeycloakService.kcUpdateUserProfile(user.sso.keycloakId, {
       firstName: updates.firstName,
       lastName: updates.lastName,
       email: updates.email ? normalizedEmail : undefined
     });
 
-    // Lokal senkron (tutarlılık için)
     const localUpdates = {
       ...updates,
       email: normalizedEmail,
@@ -179,18 +177,15 @@ const updateUser = async (userId, updates) => {
     }
   }
 
-  // ŞİFRE DOĞRULAMA VE HASH'LEME - Düzeltildi
   if (updates.password) {
-    // Şifre kompleksite kontrolü - validator ile aynı regex
     const strongPasswordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,128}$/;
-    
+
     if (!strongPasswordRegex.test(updates.password)) {
       const error = new Error('errors.validation.password_complexity');
       error.statusCode = 400;
       throw error;
     }
-    
-    // Şifreyi hash'le
+
     updates.password = await hashPassword(updates.password);
   }
 
@@ -207,7 +202,7 @@ const deleteUser = async (userId) => {
   }
 
   if (user.sso?.provider === 'keycloak') {
-    await KeycloakRoleService.kcDeleteUser(user.sso.keycloakId);
+    await KeycloakService.kcDeleteUser(user.sso.keycloakId);
   }
 
   await User.findByIdAndDelete(userId);
@@ -223,7 +218,7 @@ const toggleUserStatus = async (userId, isActive, actorId) => {
   }
 
   if (user.sso?.provider === 'keycloak') {
-    await KeycloakRoleService.kcSetUserEnabled(user.sso.keycloakId, !!isActive);
+    await KeycloakService.kcSetUserEnabled(user.sso.keycloakId, !!isActive);
   }
 
   const updates = {
@@ -252,44 +247,11 @@ const assignRoles = async (userId, roleIds, actorId) => {
     if (validRoles.length !== roleIds.length) {
       throw new Error(ERRORS.ROLE.INVALID_ROLES);
     }
-    // SSO ise Keycloak rolleri ata
+
     if (user.sso?.provider === 'keycloak') {
       const localRoleNames = validRoles.map(r => r.name);
       const kcRoleNames = mapLocalRolesToKeycloak(localRoleNames);
-      await KeycloakRoleService.kcAssignRealmRoles(user.sso.keycloakId, kcRoleNames);
-      
-      // SSO kullanıcısı için: Keycloak'tan güncel profil bilgilerini de çek ve lokal DB'ye yaz
-      try {
-        const kcUser = await KeycloakRoleService.kcGetUser(user.sso.keycloakId);
-        if (kcUser) {
-          // Keycloak'tan gelen güncel profil bilgilerini lokal DB'ye senkronize et
-          const profileUpdates = {};
-          if (kcUser.firstName && kcUser.firstName !== user.firstName) {
-            profileUpdates.firstName = kcUser.firstName;
-          }
-          if (kcUser.lastName && kcUser.lastName !== user.lastName) {
-            profileUpdates.lastName = kcUser.lastName;
-          }
-          if (kcUser.email && kcUser.email !== user.email) {
-            // Email çakışması kontrolü
-            const emailExists = await User.findOne({ 
-              email: kcUser.email.toLowerCase(), 
-              _id: { $ne: userId } 
-            });
-            if (!emailExists) {
-              profileUpdates.email = kcUser.email.toLowerCase();
-            }
-          }
-          
-          // Profil güncellemeleri varsa yaz
-          if (Object.keys(profileUpdates).length > 0) {
-            await User.findByIdAndUpdate(userId, profileUpdates, { new: true });
-          }
-        }
-      } catch (syncError) {
-        console.warn('assignRoles: Keycloak profil senkronizasyonu başarısız:', syncError.message);
-        // Rol ataması başarılı; profil senkronizasyon hatası role assignment'ı iptal etmez
-      }
+      await KeycloakService.kcAssignRealmRoles(user.sso.keycloakId, kcRoleNames);
     }
   }
 
@@ -314,7 +276,6 @@ const assignPermissions = async (userId, permissions, actorId) => {
     throw e;
   }
 
-  // SSO kullanıcılar için doğrudan permission atamasını engelle
   if (user.sso?.provider === 'keycloak') {
     const err = new Error('errors.sso.permissions_via_roles');
     err.statusCode = 400;
@@ -361,7 +322,7 @@ const resetPassword = async (userId, newPassword) => {
   }
 
   if (user.sso?.provider === 'keycloak') {
-    await KeycloakRoleService.kcResetPassword(user.sso.keycloakId, newPassword, false);
+    await KeycloakService.kcResetPassword(user.sso.keycloakId, newPassword, false);
     return true;
   }
 

@@ -47,7 +47,6 @@ export class RegisterComponent {
     });
   }
 
-  // Form validasyon yardımcı metodları
   getFieldError(fieldName: string): string {
     const field = this.form.get(fieldName);
     if (field?.errors && field.touched) {

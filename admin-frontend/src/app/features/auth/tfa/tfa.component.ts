@@ -23,7 +23,6 @@ export class TfaComponent {
     const last = auth.lastLoginEmail || sessionStorage.getItem('ap.lastEmail') || '';
     this.emailHint = last ? `E-posta: ${this.maskEmail(last)}` : '';
     
-    // TFA sayfasına direk gelinmişse login'e yönlendir
     if (!last) {
       this.router.navigate(['/login']);
     }
@@ -48,7 +47,6 @@ export class TfaComponent {
         this.attempts++;
         this.error = e?.error?.message || 'Doğrulama başarısız';
         
-        // Max deneme aşıldıysa login'e yönlendir
         if (this.attempts >= this.maxAttempts) {
           setTimeout(() => {
             this.auth.lastLoginEmail = null;
@@ -57,7 +55,6 @@ export class TfaComponent {
           this.error = 'Çok fazla yanlış deneme. Giriş sayfasına yönlendiriliyorsunuz...';
         }
         
-        // Form'u temizle
         this.form.patchValue({ code: '' });
       }
     });
@@ -70,7 +67,6 @@ export class TfaComponent {
     return `${masked}@${domain}`;
   }
 
-  // Kod input'una sadece rakam girişi için
   onCodeInput(event: any) {
     const value = event.target.value.replace(/\D/g, '');
     this.form.patchValue({ code: value });

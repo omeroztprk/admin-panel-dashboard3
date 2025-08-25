@@ -1,4 +1,3 @@
-// src/app/features/account/change-password/change-password.component.ts  (YENİ)
 import { Component } from '@angular/core';
 import { FormBuilder, Validators } from '@angular/forms';
 import { AuthService } from '../../../core/services/auth.service';
@@ -24,7 +23,6 @@ export class ChangePasswordComponent {
   });
 
   constructor(private fb: FormBuilder, private auth: AuthService, private router: Router, private userService: UserService) {
-    // SSO oturumda mevcut şifre zorunlu olmasın
     this.auth.user$.pipe(take(1)).subscribe(u => {
       const isSso = !!(u && ((u as any).authMethod === 'sso' || (u as any)?.sso?.provider === 'keycloak'));
       if (isSso) {
@@ -36,7 +34,6 @@ export class ChangePasswordComponent {
   }
 
   get isSsoSessionActive(): boolean {
-    // SSO oturumu aktifse currentPassword zorunlu değil ve farklı endpoint'e gider
     return !this.auth.isDefaultSessionActive;
   }
 
@@ -50,7 +47,7 @@ export class ChangePasswordComponent {
     }
 
     this.saving = true;
-    // SSO: kendi şifresini Keycloak Admin API üzerinden reset (current password gerekmiyor)
+
     if (this.isSsoSessionActive) {
       this.auth.user$.pipe(take(1)).subscribe(u => {
         const userId = u?._id || u?.id;
@@ -59,8 +56,7 @@ export class ChangePasswordComponent {
           next: () => {
             this.saving = false;
             this.success = 'Şifre değiştirildi. Güvenliğiniz için yeniden giriş yapın.';
-            // Keycloak SSO oturumunu da kapat
-            setTimeout(() => { this.auth.logout().subscribe(); }, 1200);
+            this.auth.logout().subscribe();
           },
           error: (e) => { this.saving = false; this.error = e?.error?.message || e?.message || 'Şifre değiştirilemedi'; }
         });
@@ -68,13 +64,14 @@ export class ChangePasswordComponent {
       return;
     }
 
-    // DEFAULT/HYBRID (JWT) akışı
     this.auth.changePassword(currentPassword!, newPassword!).subscribe({
       next: () => {
         this.saving = false;
         this.success = 'Şifre değiştirildi. Güvenliğiniz için yeniden giriş yapın.';
-        // JWT oturumu backend üzerinden düzgün kapat
-        setTimeout(() => { this.auth.logout().subscribe(); }, 1200);
+        this.auth.logout().subscribe({
+          next: () => this.router.navigateByUrl('/login'),
+          error: () => this.router.navigateByUrl('/login')
+        });
       },
       error: (e) => {
         this.saving = false; 

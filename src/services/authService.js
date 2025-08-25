@@ -9,7 +9,9 @@ const { generateTfaCode, storeTfaCode, verifyTfaCode } = require('./tfaService')
 const { sendTfaCode } = require('./emailService');
 const config = require('../config');
 const crypto = require('crypto');
-const KeycloakRoleService = require('./keycloakRoleService');
+const jwt = require('jsonwebtoken');
+const KeycloakService = require('./keycloakService');
+const logger = require('../utils/logger');
 
 const register = async (userData) => {
   const { firstName, lastName, email, password, profile, ipAddress, userAgent } = userData;
@@ -88,14 +90,14 @@ const login = async (credentials) => {
   if (config.tfa.enabled) {
     const tfaCode = generateTfaCode();
     const stored = await storeTfaCode(normalizedEmail, tfaCode);
-    
+
     if (!stored) {
       throw new Error(ERRORS.AUTH.TFA_EMAIL_FAILED);
     }
 
     const language = user.profile?.language || 'en';
     const emailSent = await sendTfaCode(normalizedEmail, tfaCode, language);
-    
+
     if (!emailSent) {
       throw new Error(ERRORS.AUTH.TFA_EMAIL_FAILED);
     }
@@ -111,9 +113,9 @@ const login = async (credentials) => {
 
 const verifyTfaAndLogin = async (email, tfaCode, ipAddress, userAgent) => {
   const normalizedEmail = normalizeEmail(email);
-  
+
   await verifyTfaCode(normalizedEmail, tfaCode);
-  
+
   const user = await User.findOne({ email: normalizedEmail }).select('+password');
   if (!user || !user.isActive || user.isLocked) {
     throw new Error(ERRORS.AUTH.INVALID_CREDENTIALS);
@@ -126,14 +128,20 @@ const completeLogin = async (user, ipAddress, userAgent) => {
   user.lastLogin = new Date();
   await user.save();
 
-  const accessToken = await generateAccessToken({ userId: user._id });
+  const atJti = crypto.randomUUID ? crypto.randomUUID() : crypto.randomBytes(16).toString('hex');
+
+  const accessToken = await generateAccessToken({ userId: user._id, jti: atJti });
+  const decoded = jwt.decode(accessToken);
+
   const refreshTokenValue = await generateRefreshToken({ userId: user._id });
 
   await tokenService.saveRefreshToken({
     token: refreshTokenValue,
     userId: user._id,
     userAgent,
-    ipAddress
+    ipAddress,
+    accessJti: atJti,
+    accessExp: decoded?.exp ? decoded.exp * 1000 : undefined
   });
 
   await user.populate([
@@ -190,10 +198,8 @@ const getMe = async (userId) => {
     throw new Error(ERRORS.USER.NOT_FOUND);
   }
 
-  // Frontend'in beklediği format için permissions'ı flatten et
   const allPermissions = await user.getAllPermissions();
 
-  // Frontend için standart format
   return {
     _id: user._id,
     firstName: user.firstName,
@@ -205,14 +211,14 @@ const getMe = async (userId) => {
     profile: user.profile,
     lastLogin: user.lastLogin,
     createdAt: user.createdAt,
-    authMethod: 'jwt' // DEFAULT/HYBRID modda JWT kullanıldığı için
+    authMethod: 'jwt'
   };
 };
 
 const updateProfile = async (userId, updates) => {
   const allowedFields = ['firstName', 'lastName', 'profile'];
   const filteredUpdates = {};
-  
+
   allowedFields.forEach((field) => {
     if (updates[field] !== undefined) {
       filteredUpdates[field] = updates[field];
@@ -278,7 +284,7 @@ const getActiveSessions = async (userId, currentRefreshTokenPlain = '', options 
     if (!userId) {
       throw new Error('Invalid user ID');
     }
-    
+
     const { Types } = require('mongoose');
     let objectId;
     try {
@@ -292,16 +298,14 @@ const getActiveSessions = async (userId, currentRefreshTokenPlain = '', options 
       throw new Error('User not found');
     }
 
-    // Keycloak oturumları
     if ((source === 'keycloak' || (source === 'auto' && user.sso?.provider === 'keycloak')) && user.sso?.keycloakId) {
       try {
-        let keycloakSessions = await KeycloakRoleService.kcGetUserSessions(user.sso.keycloakId);
-        
+        let keycloakSessions = await KeycloakService.kcGetUserSessions(user.sso.keycloakId);
+
         if (!keycloakSessions || !Array.isArray(keycloakSessions)) {
           keycloakSessions = [];
         }
-        
-        // Sadece Keycloak oturumları isteniyorsa
+
         if (source === 'keycloak') {
           return keycloakSessions.map(session => ({
             id: `kc-session-${session.id}`,
@@ -316,11 +320,11 @@ const getActiveSessions = async (userId, currentRefreshTokenPlain = '', options 
               browser: session.browser || 'Unknown',
               os: session.os || 'Unknown'
             },
-            location: { city: 'Unknown', country: 'Turkey' },
+            location: { city: 'Istanbul', country: 'Turkey' },
             source: 'keycloak'
           }));
         }
-        
+
         const kcSessions = keycloakSessions.map(session => ({
           id: `kc-session-${session.id}`,
           isCurrent: false,
@@ -334,15 +338,15 @@ const getActiveSessions = async (userId, currentRefreshTokenPlain = '', options 
             browser: session.browser || 'Unknown',
             os: session.os || 'Unknown'
           },
-          location: { city: 'Unknown', country: 'Turkey' },
+          location: { city: 'Istanbul', country: 'Turkey' },
           source: 'keycloak'
         }));
-        
+
         const jwtSessions = await getJwtSessions(objectId, currentRefreshTokenPlain);
         return [...kcSessions, ...jwtSessions];
       } catch (error) {
-        console.error('Failed to fetch Keycloak sessions:', error); // Bu error log'u koru
-        
+        logger.warn('Failed to fetch Keycloak sessions', { error: error?.message });
+
         if (source === 'keycloak') {
           return [];
         }
@@ -352,7 +356,7 @@ const getActiveSessions = async (userId, currentRefreshTokenPlain = '', options 
     const jwtSessions = await getJwtSessions(objectId, currentRefreshTokenPlain);
     return jwtSessions;
   } catch (error) {
-    console.error('Error getting active sessions:', error); // Bu error log'u koru
+    logger.error('Error getting active sessions', { error: error?.message });
     throw new Error('Failed to fetch active sessions');
   }
 };
@@ -363,9 +367,9 @@ const getJwtSessions = async (userId, currentRefreshTokenPlain) => {
     isBlacklisted: false,
     expiresAt: { $gt: new Date() }
   })
-  .populate('user', 'email')
-  .sort({ createdAt: -1 })
-  .lean();
+    .populate('user', 'email')
+    .sort({ createdAt: -1 })
+    .lean();
 
   let currentHash = '';
   if (currentRefreshTokenPlain && typeof currentRefreshTokenPlain === 'string') {
@@ -381,13 +385,13 @@ const getJwtSessions = async (userId, currentRefreshTokenPlain) => {
     expiresAt: token.expiresAt,
     ip: token.deviceInfo?.ipAddress || 'Unknown',
     device: {
-      name: token.deviceInfo?.userAgent?.split(' ')[0] || 'Unknown Device',
-      type: token.deviceInfo?.platform?.toLowerCase().includes('mobile') ? 'mobile' :
-            token.deviceInfo?.platform?.toLowerCase().includes('tablet') ? 'tablet' : 'desktop',
+      name: token.deviceInfo?.browser || 'Unknown',
+      type: token.deviceInfo?.platform?.toLowerCase().includes('mobile') ? 'mobile'
+        : token.deviceInfo?.platform?.toLowerCase().includes('tablet') ? 'tablet' : 'desktop',
       browser: token.deviceInfo?.browser || 'Unknown',
       os: token.deviceInfo?.platform || 'Unknown'
     },
-    location: { city: 'Unknown', country: 'Turkey' },
+    location: { city: 'Istanbul', country: 'Turkey' },
     source: 'jwt'
   }));
 };
@@ -409,61 +413,54 @@ const revokeSession = async (userId, sessionId) => {
     const user = await User.findById(objectId);
     if (!user) throw new Error('User not found');
 
-    // Keycloak session ID kontrolü
     if (sessionId.startsWith('kc-session-') && user.sso?.keycloakId) {
       const realSessionId = sessionId.replace('kc-session-', '');
-      return await KeycloakRoleService.kcRevokeUserSession(realSessionId);
+      return await KeycloakService.kcRevokeUserSession(realSessionId);
     }
 
-    // JWT refresh token
     const result = await RefreshToken.findOneAndUpdate(
       { _id: sessionId, user: objectId, isBlacklisted: false },
       { isBlacklisted: true },
       { new: true }
     );
-    
-    if (!result) {
-      throw new Error('Session not found or already revoked');
+    if (!result) throw new Error('Session not found or already revoked');
+
+    if (result.lastAccessJti) {
+      await tokenService.blacklistAccessJti(result.lastAccessJti, result.lastAccessExpiresAt);
     }
-    
+
     return true;
   } catch (error) {
-    console.error('Error revoking session:', error);
+    logger.error('Error revoking session', { error: error?.message });
     throw error;
   }
 };
 
 const revokeAllSessions = async (userId) => {
   try {
-   if (!userId) {
+    if (!userId) {
       throw new Error('Invalid user ID');
     }
 
-   const { Types } = require('mongoose');
-   let objectId;
-   try {
-     objectId = typeof userId === 'string' ? new Types.ObjectId(userId) : userId;
-   } catch (e) {
-     throw new Error('Invalid user ID format');
-   }
-
-   const user = await User.findById(objectId);
-    if (!user) throw new Error('User not found');
-
-    // SSO kullanıcı: Keycloak'taki tüm session'ları sonlandır
-    if (user.sso?.provider === 'keycloak') {
-      await KeycloakRoleService.kcRevokeAllUserSessions(user.sso.keycloakId);
+    const { Types } = require('mongoose');
+    let objectId;
+    try {
+      objectId = typeof userId === 'string' ? new Types.ObjectId(userId) : userId;
+    } catch (e) {
+      throw new Error('Invalid user ID format');
     }
 
-    // JWT token'larını da iptal et (HYBRID modda her iki tip session da olabilir)
-    await RefreshToken.updateMany(
-     { user: objectId, isBlacklisted: false },
-      { isBlacklisted: true }
-    );
-    
+    const user = await User.findById(objectId);
+    if (!user) throw new Error('User not found');
+
+    if (user.sso?.provider === 'keycloak') {
+      await KeycloakService.kcRevokeAllUserSessions(user.sso.keycloakId);
+    }
+
+    await tokenService.blacklistAllUserTokens(objectId);
     return true;
   } catch (error) {
-    console.error('Error revoking all sessions:', error);
+    logger.error('Error revoking all sessions', { error: error?.message });
     throw new Error('Failed to revoke all sessions');
   }
 };

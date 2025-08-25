@@ -1,4 +1,3 @@
-// src/app/features/account/sessions/sessions.component.ts  (YENİ)
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { AuthService } from '../../../core/services/auth.service';
 import { Router } from '@angular/router';
@@ -17,7 +16,6 @@ export class SessionsComponent implements OnInit, OnDestroy {
   revoking: Record<string, boolean> = {};
   private destroy$ = new Subject<void>();
   
-  // Mod kontrolü (artık SSO için de açık)
   get isSessionManagementAvailable(): boolean {
     return true;
   }
@@ -105,14 +103,12 @@ export class SessionsComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: () => { 
-          // logoutAll başarılı - AuthService zaten logout yapacak ve yönlendirecek
           this.loading = false; 
           this.sessions = []; 
         },
         error: (e) => { 
           this.loading = false; 
           this.error = e?.error?.message || e?.message || 'Tüm oturumlardan çıkış yapılamadı';
-          // Hata durumunda da logout yapmayı dene
           setTimeout(() => {
             this.auth.hardLogout();
             this.router.navigate(['/login']);

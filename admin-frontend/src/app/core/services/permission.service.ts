@@ -96,7 +96,6 @@ export class PermissionService {
       );
   }
 
-  // Meta endpoints - backend'deki endpoint'lerle uyumlu
   getAvailableResources(): Observable<ApiResponse<PermissionResourcesResponse>> {
     return this.http.get<ApiResponse<PermissionResourcesResponse>>(`${this.apiUrl}/meta/resources`)
       .pipe(

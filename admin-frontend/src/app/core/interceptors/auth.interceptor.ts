@@ -19,7 +19,6 @@ export class AuthInterceptor implements HttpInterceptor {
     const mode = environment.authMode;
     const at = this.auth.accessToken;
 
-    // Hybrid mod için withCredentials her zaman true olmalı
     const needsCookies = mode === 'HYBRID' || mode === 'SSO';
 
     let cloned = req.clone({
@@ -33,12 +32,10 @@ export class AuthInterceptor implements HttpInterceptor {
       || cloned.url.includes('/auth/refresh-token')
       || cloned.url.includes('/auth/keycloak');
 
-    // Eksik olan değişkeni tanımlama
     const isLogoutPath = cloned.url.includes('/auth/logout')
       || cloned.url.includes('/auth/logout-all')
       || cloned.url.includes('/auth/keycloak/logout');
 
-    // Token varsa ve auth path değilse ekle
     if (at && !isAuthPath && mode !== 'SSO') {
       cloned = cloned.clone({ setHeaders: { Authorization: `Bearer ${at}` } });
     }
@@ -51,7 +48,6 @@ export class AuthInterceptor implements HttpInterceptor {
           return throwError(() => err);
         }
 
-        // DEFAULT modda veya HYBRID+token'da refresh deneme
         if (err.status !== 401 || isAuthPath || isLogoutPath || !at || mode === 'SSO') {
           return throwError(() => err);
         }

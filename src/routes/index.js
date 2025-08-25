@@ -2,7 +2,6 @@ const express = require('express');
 const mongoose = require('mongoose');
 const auditRoutes = require('./audit');
 const authRoutes = require('./auth');
-const authSsoSessionsRoutes = require('./authSsoSessions'); // Yeni router'ı import et
 const permissionRoutes = require('./permissions');
 const roleRoutes = require('./roles');
 const userRoutes = require('./users');
@@ -15,7 +14,6 @@ const config = require('../config');
 
 const router = express.Router();
 
-// Health check ve info endpoints...
 router.get('/health', async (req, res) => {
   try {
     const dbState = mongoose.connection.readyState;
@@ -69,16 +67,7 @@ router.get('/info', (req, res) => {
 // SSO/Keycloak rotaları her zaman aktif
 router.use('/auth', keycloakRoutes);
 
-// AUTH MODE'a göre rotaları ayarla
-if (['DEFAULT', 'HYBRID'].includes(config.auth.mode)) {
-  // DEFAULT ve HYBRID modlarda tüm auth rotaları
-  router.use('/auth', authRoutes);
-} else {
-  // SSO modunda sadece sessions ile ilgili auth rotaları
-  router.use('/auth', authSsoSessionsRoutes);
-}
-
-// Diğer rotalar her modda aktif
+router.use('/auth', authRoutes);
 router.use('/users', userRoutes);
 router.use('/roles', roleRoutes);
 router.use('/permissions', permissionRoutes);

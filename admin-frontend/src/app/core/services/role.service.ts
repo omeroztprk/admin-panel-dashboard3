@@ -121,7 +121,6 @@ export class RoleService {
     return this.http.delete<ApiResponse<{ role: Role }>>(`${this.apiUrl}/${id}/permissions`, { body: { permissions } });
   }
 
-  // Permission listesini getirmek için PermissionService'e bağlanma
   getAllPermissions(): Observable<ApiResponse<{ permissions: Permission[] }>> {
     return this.http.get<ApiResponse<{ permissions: Permission[] }>>(`${environment.apiBase}/permissions`)
       .pipe(

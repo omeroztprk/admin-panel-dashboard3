@@ -164,6 +164,23 @@ const parseUserAgent = (userAgent) => {
   let platform = 'Unknown';
   let version = 'Unknown';
 
+  // ADD: API/CLI istemcileri için özel tespit
+  const specialClients = [
+    { name: 'Postman', pattern: /PostmanRuntime\/([\d.]+)/i, platform: 'API Client' },
+    { name: 'curl', pattern: /curl\/([\d.]+)/i, platform: 'CLI' },
+    { name: 'HTTPie', pattern: /HTTPie\/([\d.]+)/i, platform: 'CLI' },
+    { name: 'Insomnia', pattern: /Insomnia\/([\d.]+)/i, platform: 'API Client' },
+    { name: 'okhttp', pattern: /okhttp\/([\d.]+)/i, platform: 'Java' },
+    { name: 'axios', pattern: /axios\/([\d.]+)/i, platform: 'Node.js' },
+    { name: 'node-fetch', pattern: /node-fetch\/([\d.]+)/i, platform: 'Node.js' }
+  ];
+  for (const s of specialClients) {
+    const m = userAgent.match(s.pattern);
+    if (m) {
+      return { browser: s.name, platform: s.platform, version: m[1] || 'Unknown' };
+    }
+  }
+
   const browserPatterns = [
     { name: 'Chrome', pattern: /Chrome\/([0-9.]+)/, exclude: /Edg|OPR/ },
     { name: 'Firefox', pattern: /Firefox\/([0-9.]+)/ },
@@ -184,7 +201,7 @@ const parseUserAgent = (userAgent) => {
 
   const platformPatterns = [
     { name: 'Windows', pattern: /Windows/ },
-    { name: 'macOS', pattern: /Mac OS X|Macintosh/ },
+    { name: 'macOS', pattern: /Mac OS X|Macintosh|Darwin/ },
     { name: 'Linux', pattern: /Linux/ },
     { name: 'Android', pattern: /Android/ },
     { name: 'iOS', pattern: /iPhone|iPad|iPod/ },

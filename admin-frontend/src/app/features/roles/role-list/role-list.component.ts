@@ -13,29 +13,24 @@ export class RoleListComponent implements OnInit {
   roles: Role[] = [];
   loading = false;
   error = '';
-  
-  // Math helper
+
   Math = Math;
-  
-  // Pagination
+
   currentPage = 1;
   totalPages = 0;
   totalItems = 0;
   itemsPerPage = 10;
-  
-  // Filters
+
   filters: RoleFilters = {
     page: 1,
     limit: 10,
     sort: 'priority',
     includePermissions: false
   };
-  
-  // Search
+
   searchTerm = '';
   selectedStatus = '';
 
-  // Permissions
   canCreate = false;
   canUpdate = false;
   canDelete = false;
@@ -45,7 +40,7 @@ export class RoleListComponent implements OnInit {
     private roleService: RoleService,
     private authService: AuthService,
     private router: Router
-  ) {}
+  ) { }
 
   ngOnInit() {
     this.checkPermissions();
@@ -62,7 +57,7 @@ export class RoleListComponent implements OnInit {
   loadRoles() {
     this.loading = true;
     this.error = '';
-    
+
     this.roleService.getRoles(this.filters).subscribe({
       next: (response) => {
         this.roles = response.data?.roles || [];
@@ -75,8 +70,7 @@ export class RoleListComponent implements OnInit {
       error: (error) => {
         this.error = error?.error?.message || 'Roller yüklenirken hata oluştu';
         this.loading = false;
-        
-        // 401 hatası alıyorsak ve SSO/HYBRID tokensız modda isek login'e yönlendir
+
         if (error.status === 401 && !this.authService.isDefaultSessionActive) {
           this.authService.hardLogout();
           this.router.navigate(['/login']);
@@ -96,7 +90,7 @@ export class RoleListComponent implements OnInit {
     if (this.searchTerm?.trim()) {
       filters.search = this.searchTerm.trim();
     }
-    
+
     if (this.selectedStatus !== '') {
       filters.isActive = this.selectedStatus === 'true';
     }
@@ -118,14 +112,13 @@ export class RoleListComponent implements OnInit {
   }
 
   onSort(sort: string) {
-    // Mevcut sıralama ile aynı ise ters çevir
     let newSort = sort;
     if (this.filters.sort === sort) {
       newSort = `-${sort}`;
     } else if (this.filters.sort === `-${sort}`) {
       newSort = sort;
     }
-    
+
     this.filters = { ...this.filters, sort: newSort, page: 1 };
     this.currentPage = 1;
     this.loadRoles();
@@ -147,8 +140,7 @@ export class RoleListComponent implements OnInit {
 
   toggleRoleStatus(role: Role) {
     if (!this.canManage || role.isSystem) return;
-    
-    // Backend'e toggle isteği gönder
+
     this.roleService.toggleRoleStatus(role._id, !role.isActive).subscribe({
       next: () => {
         this.loadRoles();
@@ -161,7 +153,7 @@ export class RoleListComponent implements OnInit {
 
   deleteRole(role: Role) {
     if (!this.canDelete || role.isSystem) return;
-    
+
     if (confirm(`${role.displayName || role.name} rolünü silmek istediğinizden emin misiniz?`)) {
       this.roleService.deleteRole(role._id).subscribe({
         next: () => {
@@ -210,18 +202,18 @@ export class RoleListComponent implements OnInit {
   getPageNumbers(): number[] {
     const pages: number[] = [];
     const maxVisible = 5;
-    
+
     let start = Math.max(1, this.currentPage - Math.floor(maxVisible / 2));
     let end = Math.min(this.totalPages, start + maxVisible - 1);
-    
+
     if (end - start + 1 < maxVisible) {
       start = Math.max(1, end - maxVisible + 1);
     }
-    
+
     for (let i = start; i <= end; i++) {
       pages.push(i);
     }
-    
+
     return pages;
   }
 }

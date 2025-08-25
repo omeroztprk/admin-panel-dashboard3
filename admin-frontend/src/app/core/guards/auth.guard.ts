@@ -12,10 +12,8 @@ export class AuthGuard implements CanActivate {
   canActivate(route: ActivatedRouteSnapshot, state: RouterStateSnapshot): boolean | UrlTree | Observable<boolean | UrlTree> {
     const mode = environment.authMode;
 
-    // Token veya SSO user varsa geç
     if (this.auth.isAuthenticated) return true;
 
-    // HYBRID/SSO: backend'e sor
     if (mode !== 'DEFAULT') {
       return this.auth.me().pipe(
         map(() => true),
@@ -23,7 +21,6 @@ export class AuthGuard implements CanActivate {
       );
     }
 
-    // DEFAULT
     return this.router.createUrlTree(['/login'], { queryParams: { returnUrl: state.url } });
   }
 }

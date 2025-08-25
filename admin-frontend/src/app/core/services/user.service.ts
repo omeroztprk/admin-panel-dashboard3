@@ -55,7 +55,6 @@ export class UserService {
   }
 
   createUser(userData: CreateUserRequest): Observable<ApiResponse<{ user: User }>> {
-    // Client-side validation - backend ile uyumlu
     if (userData.password && typeof userData.password === 'string') {
       const strongPasswordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,128}$/;
       
@@ -83,10 +82,8 @@ export class UserService {
         const currentUser = this.authService.user;
         if (currentUser && (currentUser._id === id || (currentUser as any).id === id)) {
           const updatedUser = response?.data?.user || (response as any)?.user || userData;
-          // Local state'i kritik alanları koruyarak güncelle
           this.authService.updateUserInObservable(updatedUser as any);
 
-          // DEFAULT/HYBRID'de tam ve normalize izin/rolleri tazele
           if (!this.authService.isSsoSessionActive) {
             this.authService.me(true).subscribe({ next: () => {}, error: () => {} });
           }
@@ -118,11 +115,10 @@ export class UserService {
   }
 
   resetPassword(userId: string, newPassword: string) {
-    // users.js -> router.patch('/:id/reset-password', ...)
     return this.http.patch<ApiResponse<true>>(
       `${this.apiUrl}/${userId}/reset-password`,
       { newPassword },
-      { withCredentials: true } // SSO oturumunda session cookie'yi gönder
+      { withCredentials: true }
     );
   }
 

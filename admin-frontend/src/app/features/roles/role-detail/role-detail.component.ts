@@ -20,16 +20,13 @@ export class RoleDetailComponent implements OnInit {
   roleId = '';
   showDropdown = false;
 
-  // Math helper ekle
   Math = Math;
 
-  // Users pagination
   usersCurrentPage = 1;
   usersTotalPages = 0;
   usersTotalItems = 0;
   usersItemsPerPage = 10;
 
-  // Permissions
   canUpdate = false;
   canDelete = false;
   canManage = false;
@@ -40,7 +37,7 @@ export class RoleDetailComponent implements OnInit {
     private roleService: RoleService,
     private userService: UserService,
     private authService: AuthService
-  ) {}
+  ) { }
 
   ngOnInit() {
     this.roleId = this.route.snapshot.params['id'];
@@ -58,7 +55,7 @@ export class RoleDetailComponent implements OnInit {
   loadRole() {
     this.loading = true;
     this.error = '';
-    
+
     this.roleService.getRoleById(this.roleId, true).subscribe({
       next: (response) => {
         this.role = response.data?.role || null;
@@ -73,7 +70,7 @@ export class RoleDetailComponent implements OnInit {
 
   loadRoleUsers(page: number = 1) {
     this.usersLoading = true;
-    
+
     this.roleService.getRoleUsers(this.roleId, { page, limit: this.usersItemsPerPage }).subscribe({
       next: (response) => {
         this.roleUsers = response.data?.users || [];
@@ -87,8 +84,7 @@ export class RoleDetailComponent implements OnInit {
         console.error('Failed to load role users:', error);
         this.roleUsers = [];
         this.usersLoading = false;
-        
-        // 401 hatası için redirect
+
         if (error.status === 401 && !this.authService.isDefaultSessionActive) {
           this.authService.hardLogout();
           this.router.navigate(['/login']);
@@ -106,7 +102,7 @@ export class RoleDetailComponent implements OnInit {
 
   toggleRoleStatus() {
     if (!this.canManage || !this.role || this.role.isSystem) return;
-    
+
     this.roleService.toggleRoleStatus(this.roleId, !this.role.isActive).subscribe({
       next: () => {
         this.loadRole();
@@ -119,7 +115,7 @@ export class RoleDetailComponent implements OnInit {
 
   deleteRole() {
     if (!this.canDelete || !this.role || this.role.isSystem) return;
-    
+
     const roleName = this.role.displayName || this.role.name;
     if (confirm(`${roleName} rolünü silmek istediğinizden emin misiniz?`)) {
       this.roleService.deleteRole(this.roleId).subscribe({
@@ -135,10 +131,9 @@ export class RoleDetailComponent implements OnInit {
 
   getPermissionsByCategory() {
     if (!this.role?.permissions || this.role.permissions.length === 0) return [];
-    
+
     const categories: { [key: string]: Permission[] } = {};
-    
-    // Permission array tipini kontrol et
+
     (this.role.permissions as Permission[]).forEach((permission: Permission) => {
       const category = permission.category || 'Diğer';
       if (!categories[category]) {
@@ -146,14 +141,13 @@ export class RoleDetailComponent implements OnInit {
       }
       categories[category].push(permission);
     });
-    
-    // Kategorileri alfabetik sırala, Diğer'i en sona koy
+
     const sortedCategories = Object.keys(categories).sort((a, b) => {
       if (a === 'Diğer') return 1;
       if (b === 'Diğer') return -1;
       return a.localeCompare(b, 'tr');
     });
-    
+
     return sortedCategories.map(category => ({
       category,
       permissions: categories[category].sort((a, b) => {
@@ -166,13 +160,11 @@ export class RoleDetailComponent implements OnInit {
 
   assignPermissions() {
     if (!this.canManage || !this.role) return;
-    // Role edit sayfasına yönlendir
     this.router.navigate(['/roles', this.roleId, 'edit']);
   }
 
   removePermissions() {
     if (!this.canManage || !this.role) return;
-    // Role edit sayfasına yönlendir  
     this.router.navigate(['/roles', this.roleId, 'edit']);
   }
 
@@ -288,18 +280,18 @@ export class RoleDetailComponent implements OnInit {
   getUsersPageNumbers(): number[] {
     const pages: number[] = [];
     const maxVisible = 5;
-    
+
     let start = Math.max(1, this.usersCurrentPage - Math.floor(maxVisible / 2));
     let end = Math.min(this.usersTotalPages, start + maxVisible - 1);
-    
+
     if (end - start + 1 < maxVisible) {
       start = Math.max(1, end - maxVisible + 1);
     }
-    
+
     for (let i = start; i <= end; i++) {
       pages.push(i);
     }
-    
+
     return pages;
   }
 

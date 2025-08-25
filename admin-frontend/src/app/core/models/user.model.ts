@@ -47,7 +47,7 @@ export interface User {
   email: string;
   password?: string;
   isActive: boolean;
-  roles: string[] | any[]; // Role ID'leri veya populate edilmiş role objesi
+  roles: string[] | any[];
   permissions: UserPermission[];
   profile?: UserProfile;
   lastLogin?: string;
@@ -60,7 +60,7 @@ export interface User {
   metadata?: UserMetadata;
   fullName?: string;
   isLocked?: boolean;
-  sso?: UserSSO; // Keycloak kullanıcılarını ayırt etmek için
+  sso?: UserSSO;
 }
 
 export interface UserFilters {
@@ -83,7 +83,6 @@ export interface UserSecurityProfile {
   riskScore: number;
 }
 
-// Create/Update için minimal interface
 export interface CreateUserRequest {
   firstName: string;
   lastName: string;
@@ -99,7 +98,7 @@ export interface UpdateUserRequest {
   firstName?: string;
   lastName?: string;
   email?: string;
-  password?: string; // Bu alan eksikti
+  password?: string;
   roles?: string[];
   permissions?: { permission: string; granted: boolean }[];
   profile?: UserProfile;

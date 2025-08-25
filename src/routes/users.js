@@ -63,7 +63,14 @@ router.patch('/:id/status',
   userController.toggleUserStatus
 );
 
-router.put('/:id/roles', ensureAuthUnified, rbac.hasPermission('user:update'), userController.assignRoles);
+router.put('/:id/roles',
+  validateObjectId(),
+  rbac.hasPermission(PERMISSIONS.USER_MANAGE),
+  userValidators.assignRoles,
+  validateRequest,
+  logUserAction(ACTIONS.ASSIGN, RESOURCES.USER, SEVERITY.HIGH),
+  userController.assignRoles
+);
 
 router.patch('/:id/permissions',
   validateObjectId(),

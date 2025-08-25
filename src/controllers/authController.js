@@ -17,7 +17,7 @@ const register = asyncHandler(async (req, res) => {
   };
 
   const result = await authService.register(userData);
-  
+
   const lng = resolveLanguage(result.user?.profile?.language);
   res.set('Content-Language', lng);
 
@@ -37,7 +37,7 @@ const login = asyncHandler(async (req, res) => {
 
   try {
     const result = await authService.login(credentials);
-    
+
     const lng = resolveLanguage(result.user?.profile?.language);
     res.set('Content-Language', lng);
 
@@ -65,7 +65,7 @@ const verifyTfa = asyncHandler(async (req, res) => {
   const userAgent = req.get('User-Agent') || 'Unknown';
 
   const result = await authService.verifyTfaAndLogin(email, tfaCode, ipAddress, userAgent);
-  
+
   const lng = resolveLanguage(result.user?.profile?.language);
   res.set('Content-Language', lng);
 
@@ -95,9 +95,10 @@ const logout = asyncHandler(async (req, res) => {
 
 const logoutAll = asyncHandler(async (req, res) => {
   const user = req.user;
-  
+
+  await authService.revokeAllSessions(user._id);
+
   if (user?.authMethod === 'sso' || user?.sso?.provider === 'keycloak') {
-    // SSO logout: Keycloak + local session temizle
     req.logout(() => {
       req.session?.destroy(() => {
         return response.success(res, req.t(MESSAGES.GENERAL.SUCCESS));
@@ -106,8 +107,6 @@ const logoutAll = asyncHandler(async (req, res) => {
     return;
   }
 
-  // DEFAULT kullanıcı: tüm refresh token'ları iptal et
-  await authService.revokeAllSessions(req.user._id);
   return response.success(res, req.t(MESSAGES.GENERAL.SUCCESS));
 });
 
@@ -118,7 +117,7 @@ const getMe = asyncHandler(async (req, res) => {
 
 const updateProfile = asyncHandler(async (req, res) => {
   const user = await authService.updateProfile(req.user._id, req.body);
-  
+
   const lng = resolveLanguage(user?.profile?.language);
   res.set('Content-Language', lng);
 
@@ -133,9 +132,9 @@ const changePassword = asyncHandler(async (req, res) => {
 const getActiveSessions = asyncHandler(async (req, res) => {
   const user = req.user;
   const currentRt = req.get('x-refresh-token') || req.get('X-Refresh-Token') || '';
- 
+
   let effectiveUserId = null;
-  
+
   if (user?._id && isValidObjectId(user._id)) {
     effectiveUserId = user._id;
   } else if (user?.id && isValidObjectId(user.id)) {
@@ -151,7 +150,7 @@ const getActiveSessions = asyncHandler(async (req, res) => {
       effectiveUserId = byEmail._id;
     }
   }
-  
+
   if (!effectiveUserId) {
     return response.success(res, req.t(MESSAGES.GENERAL.SUCCESS), { sessions: [] });
   }
@@ -159,29 +158,28 @@ const getActiveSessions = asyncHandler(async (req, res) => {
   try {
     let sessions = [];
     const authMethod = req.authMethod || user?.authMethod;
-    
+
     if (config.auth?.mode === 'HYBRID' || authMethod === 'sso' || user?.sso?.provider === 'keycloak') {
       sessions = await authService.getActiveSessions(effectiveUserId, currentRt, { source: 'auto' });
     } else {
       sessions = await authService.getActiveSessions(effectiveUserId, currentRt, { source: 'jwt' });
     }
-    
+
     if (sessions.length && req.sessionID) {
       const index = sessions.findIndex(s => s.source === 'keycloak' && !s.isCurrent);
       if (index >= 0) {
         sessions[index].isCurrent = true;
       }
     }
-    
+
     return response.success(res, req.t(MESSAGES.GENERAL.SUCCESS), { sessions });
   } catch (error) {
-    console.error('Error fetching sessions:', error); // Bu error log'u koru
+    console.error('Error fetching sessions:', error);
     return response.error(res, req.t(MESSAGES.GENERAL.ERROR), 500);
   }
 });
 
 const revokeSession = asyncHandler(async (req, res) => {
-  // Session revoke artık authService'te unified olarak yapılıyor
   await authService.revokeSession(req.user._id, req.params.tokenId);
   return response.success(res, req.t(MESSAGES.AUTH.SESSION_REVOKED));
 });

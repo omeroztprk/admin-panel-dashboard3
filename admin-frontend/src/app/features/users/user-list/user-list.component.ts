@@ -17,29 +17,24 @@ export class UserListComponent implements OnInit {
   roles: Role[] = [];
   loading = false;
   error = '';
-  
-  // Math helper
+
   Math = Math;
-  
-  // Pagination
+
   currentPage = 1;
   totalPages = 0;
   totalItems = 0;
   itemsPerPage = 10;
-  
-  // Filters
+
   filters: UserFilters = {
     page: 1,
     limit: 10,
     sort: '-createdAt'
   };
-  
-  // Search
+
   searchTerm = '';
   selectedRole = '';
   selectedStatus = '';
 
-  // Permissions
   canCreate = false;
   canUpdate = false;
   canDelete = false;
@@ -51,7 +46,7 @@ export class UserListComponent implements OnInit {
     private permissionService: PermissionService,
     private authService: AuthService,
     private router: Router
-  ) {}
+  ) { }
 
   ngOnInit() {
     this.checkPermissions();
@@ -74,8 +69,7 @@ export class UserListComponent implements OnInit {
       error: (error) => {
         console.error('Failed to load roles:', error);
         this.error = 'Roller yüklenirken hata oluştu';
-        
-        // 401 hatası alıyorsak ve SSO/HYBRID tokensız modda isek login'e yönlendir
+
         if (error.status === 401 && !this.authService.isDefaultSessionActive) {
           this.authService.hardLogout();
           this.router.navigate(['/login']);
@@ -87,7 +81,7 @@ export class UserListComponent implements OnInit {
   loadUsers() {
     this.loading = true;
     this.error = '';
-    
+
     this.userService.getUsers(this.filters).subscribe({
       next: (response) => {
         this.users = response.data?.users || [];
@@ -100,8 +94,7 @@ export class UserListComponent implements OnInit {
       error: (error) => {
         this.error = error?.error?.message || 'Kullanıcılar yüklenirken hata oluştu';
         this.loading = false;
-        
-        // 401 hatası alıyorsak ve SSO/HYBRID tokensız modda isek login'e yönlendir
+
         if (error.status === 401 && !this.authService.isDefaultSessionActive) {
           this.authService.hardLogout();
           this.router.navigate(['/login']);
@@ -120,11 +113,11 @@ export class UserListComponent implements OnInit {
     if (this.searchTerm?.trim()) {
       filters.search = this.searchTerm.trim();
     }
-    
+
     if (this.selectedRole) {
       filters.role = this.selectedRole;
     }
-    
+
     if (this.selectedStatus !== '') {
       filters.isActive = this.selectedStatus === 'true';
     }
@@ -146,14 +139,13 @@ export class UserListComponent implements OnInit {
   }
 
   onSort(sort: string) {
-    // Mevcut sıralama ile aynı ise ters çevir
     let newSort = sort;
     if (this.filters.sort === sort) {
       newSort = `-${sort}`;
     } else if (this.filters.sort === `-${sort}`) {
       newSort = sort;
     }
-    
+
     this.filters = { ...this.filters, sort: newSort, page: 1 };
     this.currentPage = 1;
     this.loadUsers();
@@ -175,7 +167,7 @@ export class UserListComponent implements OnInit {
 
   toggleUserStatus(user: User) {
     if (!this.canManage) return;
-    
+
     this.userService.toggleUserStatus(user._id, !user.isActive).subscribe({
       next: () => {
         this.loadUsers();
@@ -188,7 +180,7 @@ export class UserListComponent implements OnInit {
 
   deleteUser(user: User) {
     if (!this.canDelete) return;
-    
+
     if (confirm(`${user.firstName} ${user.lastName} kullanıcısını silmek istediğinizden emin misiniz?`)) {
       this.userService.deleteUser(user._id).subscribe({
         next: () => {
@@ -203,11 +195,10 @@ export class UserListComponent implements OnInit {
 
   getUserRoles(user: User): string {
     if (!user.roles || user.roles.length === 0) return 'Rol atanmamış';
-    
+
     return user.roles
       .map(role => {
         if (typeof role === 'string') return role;
-        // Backend'den gelen role yapısına göre
         return role.displayName || role.name || '';
       })
       .filter(Boolean)
@@ -221,11 +212,10 @@ export class UserListComponent implements OnInit {
   }
 
   getUserStatus(user: User): string {
-    // Backend'den lockoutUntil kontrolü
     if (user.lockoutUntil && new Date(user.lockoutUntil) > new Date()) {
       return 'Kilitli';
     }
-    
+
     return user.isActive ? 'Aktif' : 'Pasif';
   }
 
@@ -233,7 +223,7 @@ export class UserListComponent implements OnInit {
     if (user.lockoutUntil && new Date(user.lockoutUntil) > new Date()) {
       return 'locked';
     }
-    
+
     return user.isActive ? 'active' : 'inactive';
   }
 
@@ -241,7 +231,7 @@ export class UserListComponent implements OnInit {
     this.searchTerm = '';
     this.selectedRole = '';
     this.selectedStatus = '';
-    this.currentPage = 1; // Sayfa numarasını da sıfırla
+    this.currentPage = 1;
     this.filters = {
       page: 1,
       limit: 10,
@@ -261,18 +251,18 @@ export class UserListComponent implements OnInit {
   getPageNumbers(): number[] {
     const pages: number[] = [];
     const maxVisible = 5;
-    
+
     let start = Math.max(1, this.currentPage - Math.floor(maxVisible / 2));
     let end = Math.min(this.totalPages, start + maxVisible - 1);
-    
+
     if (end - start + 1 < maxVisible) {
       start = Math.max(1, end - maxVisible + 1);
     }
-    
+
     for (let i = start; i <= end; i++) {
       pages.push(i);
     }
-    
+
     return pages;
   }
 
@@ -280,7 +270,7 @@ export class UserListComponent implements OnInit {
     if (!roles || !Array.isArray(roles) || roles.length === 0) {
       return 'Rol Atanmamış';
     }
-    
+
     return roles
       .map((role: Role | string) => {
         if (typeof role === 'string') return role;

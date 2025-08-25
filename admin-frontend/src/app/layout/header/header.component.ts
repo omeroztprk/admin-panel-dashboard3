@@ -11,25 +11,23 @@ import { environment } from '../../../environments/environment.development';
 })
 export class HeaderComponent implements OnInit {
   @Output() sidebarToggle = new EventEmitter<void>();
-  
+
   user: AuthUser | null = null;
   loggingOut = false;
   userMenuOpen = false;
   notificationsOpen = false;
-  
-  // Configuration
+
   showSearch = false;
   showNotifications = false;
   searchQuery = '';
-  
-  // Mock notifications
+
   notifications: any[] = [];
   notificationCount = 0;
 
   constructor(
     private authService: AuthService,
     private router: Router
-  ) {}
+  ) { }
 
   ngOnInit() {
     this.authService.user$.subscribe(user => {
@@ -62,11 +60,10 @@ export class HeaderComponent implements OnInit {
   logout() {
     if (this.loggingOut) return;
     this.loggingOut = true;
-    
+
     this.authService.logout().subscribe({
       next: () => {
         this.loggingOut = false;
-        // Moddan bağımsız: her zaman login'e yönlendir (IdP redirect geldiyse bunu override edecektir)
         this.router.navigate(['/login']);
       },
       error: () => {
@@ -97,7 +94,7 @@ export class HeaderComponent implements OnInit {
   @HostListener('document:click', ['$event'])
   onDocumentClick(event: Event) {
     const target = event.target as HTMLElement;
-    
+
     if (!target.closest('.user-dropdown')) {
       this.userMenuOpen = false;
     }

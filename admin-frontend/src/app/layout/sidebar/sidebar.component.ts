@@ -17,21 +17,19 @@ export class SidebarComponent implements OnInit {
 
   user: AuthUser | null = null;
   loggingOut = false;
-  
-  // Permissions
+
   hasUserManagementAccess = false;
   showAccountSection = false;
 
   constructor(
     private authService: AuthService,
     private router: Router
-  ) {}
+  ) { }
 
   ngOnInit() {
     this.authService.user$.subscribe(user => {
       this.user = user;
       this.checkPermissions();
-      // SSO kullanıcıları için de Hesap menüsü gösterilsin
       this.showAccountSection = !!user;
     });
   }
@@ -62,7 +60,7 @@ export class SidebarComponent implements OnInit {
   logout() {
     if (this.loggingOut) return;
     this.loggingOut = true;
-    
+
     this.authService.logout().subscribe({
       next: () => {
         this.loggingOut = false;

@@ -16,7 +16,7 @@ const validateJwtSecret = (secret, name) => {
   return null;
 };
 
-const AUTH_MODE = (process.env.AUTH_MODE || 'DEFAULT').toUpperCase(); // DEFAULT | SSO | HYBRID
+const AUTH_MODE = (process.env.AUTH_MODE || 'DEFAULT').toUpperCase();
 
 const config = {
   env: process.env.NODE_ENV || 'development',
@@ -120,7 +120,15 @@ const config = {
       roleMapping: safeParseJson(process.env.KEYCLOAK_ROLE_MAPPING, {}),
       adminClientId: process.env.KEYCLOAK_ADMIN_CLIENT_ID,
       adminClientSecret: process.env.KEYCLOAK_ADMIN_CLIENT_SECRET,
-      skipUserInfo: (process.env.KEYCLOAK_SKIP_USERINFO || '').toLowerCase() === 'true'
+      skipUserInfo: (process.env.KEYCLOAK_SKIP_USERINFO || '').toLowerCase() === 'true',
+      sync: {
+        enabled: process.env.KEYCLOAK_SYNC_ENABLED === 'true',
+        mode: (process.env.KEYCLOAK_SYNC_MODE || 'local-follow').toLowerCase(),
+        intervalMs: parseNumber(process.env.KEYCLOAK_SYNC_INTERVAL_MS, 5 * 60 * 1000),
+        batchSize: parseNumber(process.env.KEYCLOAK_SYNC_BATCH_SIZE, 100),
+        lockKey: process.env.KEYCLOAK_SYNC_LOCK_KEY || 'apd:keycloak:sync:lock',
+        cursorKey: process.env.KEYCLOAK_SYNC_CURSOR_KEY || 'apd:keycloak:sync:cursor'
+      }
     }
   }
 };
@@ -131,13 +139,13 @@ const errors = [];
 if (!process.env.MONGODB_URI) errors.push('MONGODB_URI is required');
 
 const REQUIRED_SSO_KEYS = [
-  'KEYCLOAK_URL', 
-  'KEYCLOAK_REALM', 
-  'KEYCLOAK_CLIENT_ID', 
-  'KEYCLOAK_CLIENT_SECRET', 
-  'KEYCLOAK_REDIRECT_URI', 
+  'KEYCLOAK_URL',
+  'KEYCLOAK_REALM',
+  'KEYCLOAK_CLIENT_ID',
+  'KEYCLOAK_CLIENT_SECRET',
+  'KEYCLOAK_REDIRECT_URI',
   'SESSION_SECRET',
-  'KEYCLOAK_ADMIN_CLIENT_ID',  // Admin API için eklendi
+  'KEYCLOAK_ADMIN_CLIENT_ID',
   'KEYCLOAK_ADMIN_CLIENT_SECRET'
 ];
 
@@ -162,7 +170,6 @@ switch (AUTH_MODE) {
     pushMissing(REQUIRED_SSO_KEYS, 'SSO');
     break;
   case 'HYBRID':
-    // HYBRID: SSO gereksinimleri + JWT sırları
     pushMissing(REQUIRED_SSO_KEYS, 'HYBRID mode (SSO part)');
     validateJwtSecrets('HYBRID');
     break;
@@ -175,7 +182,6 @@ if (errors.length) {
   process.exit(1);
 }
 
-// yardımcı parse
 function safeParseJson(v, fb) {
   try { return v ? JSON.parse(v) : fb; } catch { return fb; }
 }

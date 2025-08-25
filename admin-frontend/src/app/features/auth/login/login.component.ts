@@ -15,7 +15,6 @@ export class LoginComponent implements OnInit {
   loading = false;
   error = '';
 
-  // Environment'dan direkt al
   authMode = environment.authMode;
   isSSO = this.authMode === 'SSO';
   isDefault = this.authMode === 'DEFAULT';
@@ -35,7 +34,6 @@ export class LoginComponent implements OnInit {
 
   ngOnInit() {
 
-    // Zaten giriş yapmışsa dashboard'a yönlendir
     if (this.auth.isAuthenticated) {
       const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl') || '/dashboard';
       this.router.navigateByUrl(returnUrl);

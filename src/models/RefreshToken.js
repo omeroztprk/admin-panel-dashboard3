@@ -4,6 +4,9 @@ const refreshTokenSchema = new mongoose.Schema({
   tokenHash: { type: String, required: true, unique: true },
   jti: { type: String, required: true, unique: true },
 
+  lastAccessJti: { type: String, index: true },
+  lastAccessExpiresAt: { type: Date },
+
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
 
   expiresAt: { type: Date, required: true, index: true },

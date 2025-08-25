@@ -16,7 +16,6 @@ export class FooterComponent implements OnInit {
   isOnline = navigator.onLine;
 
   ngOnInit() {
-    // Monitor online status
     window.addEventListener('online', () => this.isOnline = true);
     window.addEventListener('offline', () => this.isOnline = false);
   }

@@ -9,7 +9,6 @@ const { PERMISSIONS, ACTIONS, RESOURCES, SEVERITY } = require('../utils/constant
 
 const router = express.Router();
 
-// Tek unified middleware kullan
 router.use(ensureAuthUnified);
 
 router.get('/',

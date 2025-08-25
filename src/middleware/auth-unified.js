@@ -1,9 +1,50 @@
 const config = require('../config');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
-const KeycloakRoleService = require('../services/keycloakRoleService');
+const KeycloakService = require('../services/keycloakService');
 const { mapKeycloakRolesToLocal } = require('../utils/sso');
 const Role = require('../models/Role');
+const logger = require('../utils/logger');
+const tokenService = require('../services/tokenService');
+const { getRedis, prefixKey } = require('../config/redis');
+
+async function getKcStatusCached(keycloakId) {
+  if (!keycloakId) return { exists: null, enabled: null };
+  const ttlSec = Number(process.env.KEYCLOAK_ENABLED_CACHE_TTL || 30);
+  const key = prefixKey(`kc:user:status:${keycloakId}`);
+
+  try {
+    const redis = getRedis();
+    if (redis?.isOpen) {
+      const cached = await redis.get(key);
+      if (cached !== null && cached !== undefined) {
+        try { return JSON.parse(cached); } catch { }
+      }
+    }
+
+    let exists = null, enabled = null;
+    try {
+      const kc = await KeycloakService.kcGetUser(keycloakId);
+      exists = true;
+      enabled = !!kc?.enabled;
+    } catch (e) {
+      if (e && (e.statusCode === 404 || e.status === 404)) {
+        exists = false;
+        enabled = null;
+      } else {
+        exists = null;
+        enabled = null;
+      }
+    }
+
+    const payload = JSON.stringify({ exists, enabled });
+    if (redis?.isOpen) await redis.set(key, payload, { EX: Math.max(5, ttlSec) });
+    return { exists, enabled };
+  } catch (e) {
+    logger.warn('getKcStatusCached failed', { error: e?.message });
+    return { exists: null, enabled: null };
+  }
+}
 
 async function ensureAuthUnified(req, res, next) {
   let user = null;
@@ -18,10 +59,14 @@ async function ensureAuthUnified(req, res, next) {
           issuer: config.jwt.issuer,
           audience: config.jwt.audience
         });
+
+        if (decoded?.jti && await tokenService.isAccessTokenRevoked(decoded.jti)) {
+          return res.status(401).json({ message: 'Token revoked' });
+        }
+
         user = await processJwtUser(decoded);
         authMethod = 'jwt';
       } catch (e) {
-        // JWT verification failed - debug log kaldırıldı
       }
     }
   }
@@ -30,13 +75,25 @@ async function ensureAuthUnified(req, res, next) {
     try {
       user = await processKeycloakUser(req.user, req);
       if (user && user.sso?.keycloakId) {
+        if (user.isActive === false || !user._id || user.__kcDeleted === true) {
+          try { await KeycloakService.kcRevokeAllUserSessions(user.sso.keycloakId); } catch (err) {
+            logger.warn('ensureAuthUnified: kcRevokeAllUserSessions failed', { error: err?.message });
+          }
+          try {
+            if (typeof req.logout === 'function') await new Promise(resolve => req.logout(resolve));
+            req.session?.destroy?.(() => {});
+          } catch (err) {
+            logger.warn('ensureAuthUnified: local session destroy failed', { error: err?.message });
+          }
+          return res.status(401).json({ message: 'Account inactive', code: 'ACCOUNT_INACTIVE' });
+        }
         authMethod = 'sso';
       } else {
-        console.error('ensureAuthUnified: Invalid SSO user data', user); // Bu error log'u koru
+        logger.error('ensureAuthUnified: Invalid SSO user data', { user: user?.id });
         user = null;
       }
     } catch (err) {
-      console.error('ensureAuthUnified: Error processing SSO user', err); // Bu error log'u koru
+      logger.error('ensureAuthUnified: Error processing SSO user', { error: err?.message });
     }
   }
 
@@ -82,7 +139,6 @@ function standardizeUser(user, authMethod) {
     };
   });
 
-  // İzinleri standart formata çevir
   const standardPermissions = (user.permissions || []).map(permission => ({
     _id: permission._id || null,
     name: permission.name || `${permission.resource}:${permission.action}`,
@@ -118,66 +174,137 @@ function standardizeUser(user, authMethod) {
 async function processKeycloakUser(kcUser, reqOrOptions) {
   try {
     if (!kcUser) throw new Error('Invalid Keycloak user data');
-    
+
     const kcRoles = kcUser.kcRoles || [];
     const localRoles = mapKeycloakRolesToLocal(kcRoles);
     const keycloakId = kcUser.profile?.id || kcUser.profile?._json?.sub;
 
     if (!keycloakId) {
-      console.warn('processKeycloakUser: No Keycloak ID found in profile'); // Bu warn'ı koru
+      logger.warn('processKeycloakUser: No Keycloak ID found in profile');
     }
-
-    const permissions = Array.isArray(kcUser.permissions) && kcUser.permissions.length
-      ? kcUser.permissions
-      : await KeycloakRoleService.mapKeycloakRolesToPermissions(kcRoles);
-    
-    const now = Date.now();
-    const req = reqOrOptions && reqOrOptions.session !== undefined ? reqOrOptions : null;
-    const throttleMs = 5 * 60 * 1000;
-    const lastSynced = req?.session?.kcProfileSyncedAt || 0;
-    const shouldSync = now - lastSynced > throttleMs;
 
     let dbUser = kcUser.user;
 
-    if ((!dbUser || shouldSync) && keycloakId) {
+    const forceSync = !!(reqOrOptions && reqOrOptions.forceSync === true);
+    const shouldSync = forceSync && !!keycloakId;
+
+    if (shouldSync) {
       try {
-        dbUser = await KeycloakRoleService.updateUserKeycloakInfo(
-          keycloakId, kcRoles, kcUser.profile._json || kcUser.profile, { updateLastLogin: false }
+        dbUser = await KeycloakService.updateUserKeycloakInfo(
+          keycloakId, kcRoles, kcUser.profile._json || kcUser.profile, { updateLastLogin: true }
         );
-        if (req?.session) req.session.kcProfileSyncedAt = now;
       } catch (syncErr) {
-        console.error('processKeycloakUser: Sync error', syncErr); // Bu error log'u koru
+        logger.error('processKeycloakUser: Sync error', { error: syncErr.message });
       }
     }
 
-    let roleDocs = [];
-    if (localRoles?.length) {
+    let freshUser = null;
+    try {
+      if (keycloakId) {
+        freshUser = await User.findOne({ 'sso.keycloakId': keycloakId })
+          .populate({
+            path: 'roles',
+            match: { isActive: true },
+            select: 'name displayName description priority isActive permissions',
+            populate: { path: 'permissions', match: { isActive: true } }
+          })
+          .populate({
+            path: 'permissions.permission',
+            select: 'name displayName resource action description category isActive'
+          });
+      } else if (dbUser?._id) {
+        freshUser = await User.findById(dbUser._id)
+          .populate({
+            path: 'roles',
+            match: { isActive: true },
+            select: 'name displayName description priority isActive permissions',
+            populate: { path: 'permissions', match: { isActive: true } }
+          })
+          .populate({
+            path: 'permissions.permission',
+            select: 'name displayName resource action description category isActive'
+          });
+      }
+    } catch (e) {
+      logger.error('processKeycloakUser: fresh load error', { error: e.message });
+    }
+
+    const dbFound = !!freshUser;
+    dbUser = freshUser || dbUser;
+
+    const kcStatus = keycloakId ? await getKcStatusCached(keycloakId) : { exists: null, enabled: null };
+
+    if (kcStatus.enabled !== null && dbFound && freshUser.isActive !== kcStatus.enabled) {
+      try {
+        await User.updateOne({ _id: freshUser._id }, { $set: { isActive: kcStatus.enabled } });
+        freshUser.isActive = kcStatus.enabled;
+      } catch (e) {
+        logger.warn('processKeycloakUser: failed to sync isActive from Keycloak', { error: e?.message });
+      }
+    }
+
+    let kcDeleted = false;
+    if (kcStatus.exists === false) {
+      kcDeleted = true;
+      if (dbFound) {
+        try {
+          await tokenService.blacklistAllUserTokens(freshUser._id);
+        } catch (e) {
+          logger.warn('processKeycloakUser: token blacklist failed', { userId: freshUser._id?.toString(), error: e?.message });
+        }
+        try {
+          await User.deleteOne({ _id: freshUser._id });
+          dbUser = null;
+        } catch (e) {
+          logger.warn('processKeycloakUser: delete user failed', { userId: freshUser._id?.toString(), error: e?.message });
+        }
+      }
+    }
+
+    let resolvedPermissions = [];
+    try {
+      if (freshUser && typeof freshUser.getAllPermissions === 'function') {
+        resolvedPermissions = await freshUser.getAllPermissions();
+      } else {
+        resolvedPermissions = await KeycloakService.mapKeycloakRolesToPermissions(kcRoles);
+      }
+    } catch (e) {
+      logger.error('processKeycloakUser: permission resolve error', { error: e.message });
+    }
+
+    let roleDocs = Array.isArray(freshUser?.roles) && freshUser.roles.length
+      ? freshUser.roles
+      : [];
+    if (!roleDocs.length && localRoles?.length) {
       roleDocs = await Role.find({
         name: { $in: localRoles },
         isActive: true
       }).select('name displayName description priority isActive permissions');
     }
 
+    const finalIsActive =
+      kcStatus.exists === false ? false
+      : (kcStatus.enabled !== null ? kcStatus.enabled
+         : (dbFound ? (freshUser.isActive !== false) : false));
+
     return {
       _id: dbUser?._id,
       id: keycloakId || dbUser?._id,
-      email: kcUser.profile?._json?.email || kcUser.profile?.email || dbUser?.email,
-      firstName: kcUser.profile?._json?.given_name || kcUser.profile?.firstName || dbUser?.firstName,
-      lastName: kcUser.profile?._json?.family_name || kcUser.profile?.lastName || dbUser?.lastName,
+      email: dbUser?.email || kcUser.profile?._json?.email || kcUser.profile?.email,
+      firstName: dbUser?.firstName || kcUser.profile?._json?.given_name || kcUser.profile?.firstName,
+      lastName: dbUser?.lastName || kcUser.profile?._json?.family_name || kcUser.profile?.lastName,
       roles: roleDocs.length ? roleDocs : localRoles,
-      permissions: permissions,
-      isActive: dbUser?.isActive !== false,
-      profile: kcUser.profile || dbUser?.profile || {},
+      permissions: resolvedPermissions,
+      isActive: finalIsActive,
+      profile: dbUser?.profile || kcUser.profile || {},
       lastLogin: dbUser?.lastLogin,
       createdAt: dbUser?.createdAt,
       authMethod: 'sso',
-      sso: { 
-        provider: 'keycloak', 
-        keycloakId: keycloakId
-      }
+      sso: { provider: 'keycloak', keycloakId },
+      __kcDeleted: kcDeleted
     };
   } catch (error) {
-    console.error('Error processing Keycloak user:', error); // Bu error log'u koru
+    logger.error('Error processing Keycloak user:', { error: error.message });
     throw error;
   }
 }
@@ -218,7 +345,7 @@ async function processJwtUser(decoded) {
       authMethod: 'jwt'
     };
   } catch (error) {
-    console.error('Error processing JWT user:', error); // Bu error log'u koru
+    logger.error('Error processing JWT user:', { error: error.message });
     throw error;
   }
 }

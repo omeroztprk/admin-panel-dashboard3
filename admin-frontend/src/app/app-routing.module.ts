@@ -1,4 +1,3 @@
-// src/app/app-routing.module.ts
 import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
 import { AuthGuard } from './core/guards/auth.guard';
@@ -50,7 +49,7 @@ const routes: Routes = [
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
       { path: 'dashboard', component: DashboardComponent },
 
-      // Hesap sayfaları (artık SSO için de açık)
+      // Account Management
       { path: 'account/profile', component: ProfileComponent },
       { path: 'account/security', component: ChangePasswordComponent },
       { path: 'account/sessions', component: SessionsComponent },
@@ -67,6 +66,7 @@ const routes: Routes = [
       { path: 'roles/:id', component: RoleDetailComponent, canActivate: [PermissionGuard], data: { permission: 'role:read' } },
       { path: 'roles/:id/edit', component: RoleFormComponent, canActivate: [PermissionGuard], data: { permission: 'role:update' } },
 
+      // Permission Management Routes with permission checks
       { path: 'permissions', component: PermissionListComponent, canActivate: [PermissionGuard], data: { permission: 'permission:read' } },
       { path: 'permissions/new', component: PermissionFormComponent, canActivate: [PermissionGuard], data: { permission: 'permission:create' } },
       { path: 'permissions/:id', component: PermissionDetailComponent, canActivate: [PermissionGuard], data: { permission: 'permission:read' } },

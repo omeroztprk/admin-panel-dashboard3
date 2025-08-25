@@ -3,9 +3,9 @@ const mongoose = require('mongoose');
 const config = require('./src/config');
 const connectDB = require('./src/config/database');
 const { connectRedis, getRedis } = require('./src/config/redis');
-const { startKeycloakPeriodicSync, stopKeycloakPeriodicSync } = require('./src/services/keycloakSyncService');
 
 let server;
+const { startKeycloakPeriodicSync, stopKeycloakPeriodicSync } = require('./src/services/keycloakSyncService');
 
 async function startServer() {
   try {
@@ -32,7 +32,7 @@ async function startServer() {
     server.keepAliveTimeout = 65000;
     server.headersTimeout = 66000;
 
-    // Start optional KC sync
+    // ADD: optional periodic sync
     startKeycloakPeriodicSync();
   } catch (error) {
     console.error('Failed to start server:', error);
@@ -42,11 +42,12 @@ async function startServer() {
 
 async function shutdown(exitCode = 0) {
   try {
+    // ADD: stop sync
+    stopKeycloakPeriodicSync();
     if (server) await new Promise((resolve) => server.close(resolve));
     await mongoose.connection.close().catch(() => { });
     const redis = getRedis();
     if (redis?.isOpen) await redis.quit();
-    stopKeycloakPeriodicSync();
   } catch (err) {
     console.error('Shutdown error:', err);
   } finally {

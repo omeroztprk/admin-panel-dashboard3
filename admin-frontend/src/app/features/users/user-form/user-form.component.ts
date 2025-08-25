@@ -26,10 +26,8 @@ export class UserFormComponent implements OnInit {
   canCreate = false;
   canUpdate = false;
 
-  // Backend ile aynı regex
   private readonly strongPasswordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,128}$/;
 
-  // Keycloak kullanıcıyı tespit et
   isSsoUser = false;
 
   constructor(
@@ -47,7 +45,6 @@ export class UserFormComponent implements OnInit {
     this.userId = this.route.snapshot.params['id'];
     this.isEditMode = !!this.userId;
 
-    // Formu, mod belirlendikten sonra oluştur (password validator doğru olsun)
     this.userForm = this.createForm();
 
     this.checkPermissions();
@@ -103,7 +100,6 @@ export class UserFormComponent implements OnInit {
       .pipe(finalize(() => { this.loading = false; }))
       .subscribe({
         next: (response) => {
-          // Hem { data: { user } } hem de { user } formatlarını destekle
           const user = response?.data?.user || (response as any)?.user;
           if (!user) {
             this.error = 'Kullanıcı bulunamadı';
@@ -112,10 +108,8 @@ export class UserFormComponent implements OnInit {
 
           this.user = user;
 
-          // Keycloak kullanıcıyı tespit et
           this.isSsoUser = (user as any)?.sso?.provider === 'keycloak' || user.authMethod === 'sso';
           if (this.isSsoUser) {
-            // SSO kullanıcıda şifre yerelden yönetilmez
             this.userForm.get('password')?.disable({ onlySelf: true });
           }
 
@@ -125,8 +119,8 @@ export class UserFormComponent implements OnInit {
             email: user.email || '',
             roles: Array.isArray(user.roles)
               ? user.roles
-                  .map((r: any) => typeof r === 'string' ? r : r?._id)
-                  .filter(Boolean)
+                .map((r: any) => typeof r === 'string' ? r : r?._id)
+                .filter(Boolean)
               : [],
             profile: {
               phone: user.profile?.phone || '',
@@ -135,7 +129,6 @@ export class UserFormComponent implements OnInit {
             }
           });
 
-          // Edit modunda şifre zorunlu olmadığından alanı boş bırak
           this.userForm.get('password')?.setValue('');
         },
         error: (error) => {
@@ -147,7 +140,7 @@ export class UserFormComponent implements OnInit {
   onRoleChange(event: any, roleId: string) {
     const currentRoles = this.userForm.get('roles')?.value || [];
     let updatedRoles: string[];
-    
+
     if (event.target.checked) {
       if (!currentRoles.includes(roleId)) {
         updatedRoles = [...currentRoles, roleId];
@@ -157,7 +150,7 @@ export class UserFormComponent implements OnInit {
     } else {
       updatedRoles = currentRoles.filter((id: string) => id !== roleId);
     }
-    
+
     this.userForm.get('roles')?.setValue(updatedRoles);
     this.userForm.get('roles')?.markAsDirty();
   }
@@ -169,12 +162,11 @@ export class UserFormComponent implements OnInit {
       return;
     }
 
-    // Permission check
     if (this.isEditMode && !this.canUpdate) {
       this.error = 'Bu kullanıcıyı güncelleme yetkiniz bulunmuyor';
       return;
     }
-    
+
     if (!this.isEditMode && !this.canCreate) {
       this.error = 'Kullanıcı oluşturma yetkiniz bulunmuyor';
       return;
@@ -183,15 +175,12 @@ export class UserFormComponent implements OnInit {
     this.saving = true;
     this.error = '';
 
-    // getRawValue: disabled alanları da içersin (SSO'da password disable)
     const formValue: any = { ...this.userForm.getRawValue() };
 
-    // Edit modunda boş şifre alanını kaldır
     if (this.isEditMode && (!formValue.password || !String(formValue.password).trim())) {
       delete formValue.password;
     }
 
-    // Boş profile alanlarını temizle
     if (formValue.profile) {
       const profileKeys = Object.keys(formValue.profile);
       profileKeys.forEach(key => {
@@ -200,19 +189,17 @@ export class UserFormComponent implements OnInit {
           delete formValue.profile[key];
         }
       });
-      
+
       if (Object.keys(formValue.profile).length === 0) {
         delete formValue.profile;
       }
     }
 
-    // SSO kullanıcı: önce profil, sonra rol
     if (this.isEditMode && this.isSsoUser) {
       const formValue: any = { ...this.userForm.getRawValue() };
       const roleIds: string[] = Array.isArray(formValue.roles) ? formValue.roles : [];
       const { roles, password, ...profilePayload } = formValue;
 
-      // Rol değişimi var mı kontrol et
       const currentRoleIds = Array.isArray(this.user?.roles)
         ? (this.user!.roles as any[]).map(r => typeof r === 'string' ? r : r?._id).filter(Boolean)
         : [];
@@ -225,33 +212,29 @@ export class UserFormComponent implements OnInit {
           switchMap(() => (sameRoles || roleIds.length === 0)
             ? of(null)
             : this.userService.assignRoles(this.userId, roleIds).pipe(
-                tap(() => {
-                  const currentUser = this.authService.user;
-                  if (currentUser && (currentUser._id === this.userId || (currentUser as any).id === this.userId)) {
-                    // Rol değişimi sonrası self ise: kullanıcı + permissions tazele
-                    this.userService.getUserById(this.userId).subscribe({
-                      next: (res) => {
-                        const updatedUser = (res as any)?.data?.user || (res as any)?.user;
-                        if (updatedUser) {
-                          // Permissions'ı ayrı uçtan çek ve birlikte yaz
-                          this.userService.getUserPermissions(this.userId).subscribe({
-                            next: (permRes) => {
-                              const permissions = permRes?.data?.permissions || [];
-                              this.authService.updateUserInObservable({ ...updatedUser, permissions } as any);
-                            },
-                            error: () => {
-                              // permissions alınamazsa en azından profil/roller güncellensin
-                              this.authService.updateUserInObservable(updatedUser as any);
-                            }
-                          });
-                        }
+              tap(() => {
+                const currentUser = this.authService.user;
+                if (currentUser && (currentUser._id === this.userId || (currentUser as any).id === this.userId)) {
+                  this.userService.getUserById(this.userId).subscribe({
+                    next: (res) => {
+                      const updatedUser = (res as any)?.data?.user || (res as any)?.user;
+                      if (updatedUser) {
+                        this.userService.getUserPermissions(this.userId).subscribe({
+                          next: (permRes) => {
+                            const permissions = permRes?.data?.permissions || [];
+                            this.authService.updateUserInObservable({ ...updatedUser, permissions } as any);
+                          },
+                          error: () => {
+                            this.authService.updateUserInObservable(updatedUser as any);
+                          }
+                        });
                       }
-                    });
-                  }
-                })
-              )
+                    }
+                  });
+                }
+              })
+            )
           ),
-          // Rol atama hata verirse kullanıcıya anlamlı mesaj göster ama profil güncellemesini iptal etme
           catchError((err) => {
             const msg = err?.error?.message || err?.message || 'Rol atama sırasında hata oluştu';
             this.error = `Rol güncellenemedi: ${msg}`;
@@ -269,8 +252,7 @@ export class UserFormComponent implements OnInit {
       return;
     }
 
-    // DEFAULT / HYBRID (JWT) kullanıcı akışı
-    const operation = this.isEditMode 
+    const operation = this.isEditMode
       ? this.userService.updateUser(this.userId, formValue as UpdateUserRequest)
       : this.userService.createUser(formValue as CreateUserRequest);
 
@@ -292,29 +274,28 @@ export class UserFormComponent implements OnInit {
       Object.keys(formGroup.controls).forEach(key => {
         const control = formGroup.get(key);
         control?.markAsTouched();
-        
-        // FormGroup veya FormArray kontrollerini kontrol et
+
         if (control?.controls) {
           markControlsRecursively(control);
         }
       });
     };
-    
+
     markControlsRecursively(this.userForm);
   }
 
   isFieldInvalid(fieldName: string, nestedField?: string): boolean {
-    const field = nestedField 
+    const field = nestedField
       ? this.userForm.get(`${fieldName}.${nestedField}`)
       : this.userForm.get(fieldName);
     return !!(field && field.invalid && (field.dirty || field.touched));
   }
 
   getFieldError(fieldName: string, nestedField?: string): string {
-    const field = nestedField 
+    const field = nestedField
       ? this.userForm.get(`${fieldName}.${nestedField}`)
       : this.userForm.get(fieldName);
-      
+
     if (!field || !field.errors) return '';
 
     const errors = field.errors;
@@ -331,7 +312,7 @@ export class UserFormComponent implements OnInit {
       }
       return 'Geçersiz format';
     }
-    
+
     return 'Geçersiz değer';
   }
 
@@ -345,7 +326,7 @@ export class UserFormComponent implements OnInit {
       'profile.phone': 'Telefon',
       'profile.timezone': 'Saat Dilimi'
     };
-    
+
     const fullFieldName = nestedField ? `${fieldName}.${nestedField}` : fieldName;
     return fieldMap[fullFieldName] || fieldName;
   }

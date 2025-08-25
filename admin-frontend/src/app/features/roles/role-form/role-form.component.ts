@@ -36,10 +36,10 @@ export class RoleFormComponent implements OnInit {
   ngOnInit() {
     this.roleId = this.route.snapshot.params['id'];
     this.isEditMode = !!this.roleId;
-    
+
     this.checkPermissions();
     this.loadPermissions();
-    
+
     if (this.isEditMode) {
       this.loadRole(this.roleId);
     } else {
@@ -59,13 +59,11 @@ export class RoleFormComponent implements OnInit {
   }
 
   private checkPermissions() {
-    // Implement permission checks based on your application's requirements
-    this.canCreate = true; // Example: allow create for all users
-    this.canUpdate = true; // Example: allow update for all users
+    this.canCreate = true;
+    this.canUpdate = true;
   }
 
   loadPermissions() {
-    // PermissionService kullanarak tüm permissions'ları yükle
     this.roleService.getAllPermissions().subscribe({
       next: (response) => {
         this.permissions = response.data?.permissions || [];
@@ -96,8 +94,8 @@ export class RoleFormComponent implements OnInit {
           const permissionIds =
             Array.isArray(role.permissions)
               ? (role.permissions as (Permission | string)[])
-                  .map(p => (typeof p === 'string' ? p : p?._id))
-                  .filter((v): v is string => !!v)
+                .map(p => (typeof p === 'string' ? p : p?._id))
+                .filter((v): v is string => !!v)
               : [];
 
           this.roleForm.patchValue({
@@ -115,19 +113,16 @@ export class RoleFormComponent implements OnInit {
       });
   }
 
-  // Yardımcı: güvenli izin ID'si al
   getPermissionId(p: Permission | string): string {
     return typeof p === 'string' ? p : (p?._id || p?.name || '');
   }
 
-  // Yardımcı: seçili mi?
   isPermissionSelected(p: Permission): boolean {
     const id = this.getPermissionId(p);
     const selected: string[] = this.roleForm.get('permissions')?.value || [];
     return !!id && selected.includes(id);
   }
 
-  // Tek noktadan toggle
   private togglePermission(permissionId: string, checked?: boolean) {
     const ctrl = this.roleForm.get('permissions');
     const current: string[] = ctrl?.value || [];
@@ -147,12 +142,10 @@ export class RoleFormComponent implements OnInit {
     ctrl?.updateValueAndValidity({ emitEvent: true });
   }
 
-  // Input change
   onPermissionChange(event: any, permissionId: string) {
     this.togglePermission(permissionId, !!event.target.checked);
   }
 
-  // Etikete tıklama
   onPermissionLabelClick(event: MouseEvent, permissionId: string) {
     event.preventDefault();
     event.stopPropagation();
@@ -166,18 +159,16 @@ export class RoleFormComponent implements OnInit {
       return;
     }
 
-    // Permission check
     if (this.isEditMode && !this.canUpdate) {
       this.error = 'Bu rolü güncelleme yetkiniz bulunmuyor';
       return;
     }
-    
+
     if (!this.isEditMode && !this.canCreate) {
       this.error = 'Rol oluşturma yetkiniz bulunmuyor';
       return;
     }
 
-    // System role kontrolü
     if (this.isEditMode && this.role?.isSystem) {
       this.error = 'Sistem rolü düzenlenemez';
       return;
@@ -188,7 +179,7 @@ export class RoleFormComponent implements OnInit {
 
     const formData: CreateRoleRequest | UpdateRoleRequest = { ...this.roleForm.value };
 
-    const operation = this.isEditMode 
+    const operation = this.isEditMode
       ? this.roleService.updateRole(this.roleId, formData as UpdateRoleRequest)
       : this.roleService.createRole(formData as CreateRoleRequest);
 
@@ -210,13 +201,13 @@ export class RoleFormComponent implements OnInit {
       Object.keys(formGroup.controls).forEach(key => {
         const control = formGroup.get(key);
         control?.markAsTouched();
-        
+
         if (control?.controls) {
           markControlsRecursively(control);
         }
       });
     };
-    
+
     markControlsRecursively(this.roleForm);
   }
 
@@ -241,7 +232,7 @@ export class RoleFormComponent implements OnInit {
       }
       return 'Geçersiz format';
     }
-    
+
     return 'Geçersiz değer';
   }
 
@@ -252,7 +243,7 @@ export class RoleFormComponent implements OnInit {
       'description': 'Açıklama',
       'priority': 'Öncelik'
     };
-    
+
     return fieldMap[fieldName] || fieldName;
   }
 
@@ -264,12 +255,11 @@ export class RoleFormComponent implements OnInit {
     }
   }
 
-  // Permissions kategoriye göre grupla
   getPermissionsByCategory() {
     if (!this.permissions || this.permissions.length === 0) return [];
-    
+
     const categories: { [key: string]: Permission[] } = {};
-    
+
     this.permissions.forEach(permission => {
       const category = permission.category || 'Diğer';
       if (!categories[category]) {
@@ -277,14 +267,13 @@ export class RoleFormComponent implements OnInit {
       }
       categories[category].push(permission);
     });
-    
-    // Kategorileri alfabetik sırala, Diğer'i en sona koy
+
     const sortedCategories = Object.keys(categories).sort((a, b) => {
       if (a === 'Diğer') return 1;
       if (b === 'Diğer') return -1;
       return a.localeCompare(b, 'tr');
     });
-    
+
     return sortedCategories.map(category => ({
       category,
       permissions: categories[category].sort((a, b) => {

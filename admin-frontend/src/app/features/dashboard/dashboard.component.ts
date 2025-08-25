@@ -1,4 +1,3 @@
-// features/dashboard/dashboard.component.ts
 import { Component, OnInit } from '@angular/core';
 import { AuthService } from '../../core/services/auth.service';
 import { environment } from '../../../environments/environment.development';
@@ -16,10 +15,8 @@ export class DashboardComponent implements OnInit {
   constructor(private auth: AuthService) { }
 
   ngOnInit(): void {
-    // Global user state'i dinle
     this.auth.user$.subscribe(u => { this.user = u; });
 
-    // Uygulama ilk açılışında user yoksa bir defa hydrate et
     if (!this.auth.user) {
       this.auth.me().pipe(take(1)).subscribe({ next: () => {}, error: () => {} });
     }

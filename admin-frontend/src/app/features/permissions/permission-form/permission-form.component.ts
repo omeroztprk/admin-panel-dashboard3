@@ -38,10 +38,10 @@ export class PermissionFormComponent implements OnInit {
   ngOnInit() {
     this.permissionId = this.route.snapshot.params['id'];
     this.isEditMode = !!this.permissionId;
-    
+
     this.checkPermissions();
     this.loadMetadata();
-    
+
     if (this.isEditMode) {
       this.loadPermission();
     } else {
@@ -67,7 +67,6 @@ export class PermissionFormComponent implements OnInit {
   }
 
   private loadMetadata() {
-    // Resources
     this.permissionService.getAvailableResources().subscribe({
       next: (response) => {
         this.resources = response.data?.resources || [];
@@ -77,7 +76,6 @@ export class PermissionFormComponent implements OnInit {
       }
     });
 
-    // Actions
     this.permissionService.getAvailableActions().subscribe({
       next: (response) => {
         this.actions = response.data?.actions || [];
@@ -87,7 +85,6 @@ export class PermissionFormComponent implements OnInit {
       }
     });
 
-    // Categories
     this.permissionService.getPermissionCategories().subscribe({
       next: (response) => {
         this.categories = response.data?.categories || [];
@@ -101,7 +98,7 @@ export class PermissionFormComponent implements OnInit {
   private loadPermission() {
     this.loading = true;
     this.error = '';
-    
+
     this.permissionService.getPermissionById(this.permissionId).subscribe({
       next: (response) => {
         this.permission = response.data?.permission || null;
@@ -133,8 +130,7 @@ export class PermissionFormComponent implements OnInit {
   onResourceActionChange() {
     const resource = this.permissionForm.get('resource')?.value;
     const action = this.permissionForm.get('action')?.value;
-    
-    // Auto-generate name if both resource and action are selected
+
     if (resource && action && !this.permissionForm.get('name')?.value) {
       const generatedName = `${resource}:${action}`;
       this.permissionForm.get('name')?.setValue(generatedName);
@@ -148,18 +144,16 @@ export class PermissionFormComponent implements OnInit {
       return;
     }
 
-    // Permission check
     if (this.isEditMode && !this.canUpdate) {
       this.error = 'Bu izni güncelleme yetkiniz bulunmuyor';
       return;
     }
-    
+
     if (!this.isEditMode && !this.canCreate) {
       this.error = 'İzin oluşturma yetkiniz bulunmuyor';
       return;
     }
 
-    // System permission kontrolü
     if (this.isEditMode && this.permission?.isSystem) {
       this.error = 'Sistem izni düzenlenemez';
       return;
@@ -169,14 +163,12 @@ export class PermissionFormComponent implements OnInit {
     this.error = '';
 
     const formData = { ...this.permissionForm.value };
-    
-    // Name alanı boşsa resource:action formatında oluştur
+
     if (!formData.name?.trim()) {
       formData.name = `${formData.resource}:${formData.action}`;
     }
 
-    // Tip güvenliği için explicit casting
-    const operation = this.isEditMode 
+    const operation = this.isEditMode
       ? this.permissionService.updatePermission(this.permissionId, formData as UpdatePermissionRequest)
       : this.permissionService.createPermission(formData as CreatePermissionRequest);
 
@@ -198,13 +190,13 @@ export class PermissionFormComponent implements OnInit {
       Object.keys(formGroup.controls).forEach(key => {
         const control = formGroup.get(key);
         control?.markAsTouched();
-        
+
         if (control?.controls) {
           markControlsRecursively(control);
         }
       });
     };
-    
+
     markControlsRecursively(this.permissionForm);
   }
 
@@ -224,7 +216,7 @@ export class PermissionFormComponent implements OnInit {
     if (errors['pattern']) {
       return 'Geçersiz format';
     }
-    
+
     return 'Geçersiz değer';
   }
 
@@ -237,7 +229,7 @@ export class PermissionFormComponent implements OnInit {
       'action': 'İşlem',
       'category': 'Kategori'
     };
-    
+
     return fieldMap[fieldName] || fieldName;
   }
 
@@ -262,15 +254,15 @@ export class PermissionFormComponent implements OnInit {
     const resource = this.permissionForm.get('resource')?.value;
     const action = this.permissionForm.get('action')?.value;
     const name = this.permissionForm.get('name')?.value;
-    
+
     if (name?.trim()) {
       return name.trim();
     }
-    
+
     if (resource && action) {
       return `${resource}:${action}`;
     }
-    
+
     return 'Önizleme mevcut değil';
   }
 }

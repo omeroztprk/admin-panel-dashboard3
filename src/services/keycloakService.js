@@ -2,11 +2,16 @@ const User = require('../models/User');
 const Role = require('../models/Role');
 const Permission = require('../models/Permission');
 const { mapKeycloakRolesToLocal } = require('../utils/sso');
-const { filterKeycloakRoles } = require('../utils/sso'); // NEW import
+const { filterKeycloakRoles } = require('../utils/sso');
 const config = require('../config');
 const fetch = global.fetch || require('node-fetch');
+const logger = require('../utils/logger');
+const { getRedis, prefixKey } = require('../config/redis');
 
-class KeycloakRoleService {
+function statusKey(id) { return prefixKey(`kc:user:status:${id}`); }
+function ttlSec() { return Math.max(5, Number(process.env.KEYCLOAK_ENABLED_CACHE_TTL || 30)); }
+
+class KeycloakService {
   static async mapKeycloakRolesToPermissions(kcRoles = []) {
     try {
       const localRoleNames = mapKeycloakRolesToLocal(kcRoles);
@@ -40,7 +45,7 @@ class KeycloakRoleService {
 
       return Array.from(permissionMap.values());
     } catch (error) {
-      console.error('Error mapping Keycloak roles to permissions:', error);
+      logger.error('Error mapping Keycloak roles to permissions', { error: error.message });
       return [];
     }
   }
@@ -50,7 +55,6 @@ class KeycloakRoleService {
       const localRoleNames = mapKeycloakRolesToLocal(kcRoles || []);
       const profileEmail = (profile?.email || '').toLowerCase().trim();
 
-      // 1) Locate user by KC ID or fallback to email
       let user = await User.findOne({ 'sso.keycloakId': keycloakUserId });
       if (!user && profileEmail) {
         user = await User.findOne({ email: profileEmail });
@@ -59,7 +63,6 @@ class KeycloakRoleService {
         }
       }
 
-      // 2) Create if missing
       if (!user) {
         user = new User({
           firstName: profile?.given_name || profile?.firstName || 'Unknown',
@@ -71,7 +74,10 @@ class KeycloakRoleService {
         user.$__skipValidation = true;
       }
 
-      // 3) Map roles -> ids
+      if (Object.prototype.hasOwnProperty.call(profile || {}, 'enabled')) {
+        user.isActive = !!profile.enabled;
+      }
+
       let roleIds = [];
       if (localRoleNames?.length) {
         const roles = await Role.find({ name: { $in: localRoleNames }, isActive: true }).select('_id name');
@@ -83,7 +89,6 @@ class KeycloakRoleService {
         }
       }
 
-      // 4) Sync profile basics (firstName, lastName, email, locale)
       const nextFirst = profile?.given_name ?? profile?.firstName;
       const nextLast = profile?.family_name ?? profile?.lastName;
       const nextEmail = profileEmail || undefined;
@@ -96,7 +101,7 @@ class KeycloakRoleService {
         if (!exists) {
           user.email = nextEmail;
         } else {
-          console.warn(`updateUserKeycloakInfo: Email conflict for KC user ${keycloakUserId} -> ${nextEmail}, keeping local email ${user.email}`);
+          logger.warn('updateUserKeycloakInfo: Email conflict', { keycloakUserId, nextEmail, keep: user.email });
         }
       }
 
@@ -108,15 +113,24 @@ class KeycloakRoleService {
         }
       }
 
-      // 5) Audit-ish timestamp update (optional)
       if (options.updateLastLogin !== false) {
         user.lastLogin = new Date();
       }
 
       await user.save({ validateBeforeSave: false });
+
+      if (Object.prototype.hasOwnProperty.call(profile || {}, 'enabled')) {
+        try {
+          const redis = getRedis();
+          if (redis?.isOpen) {
+            await redis.set(statusKey(keycloakUserId), JSON.stringify({ exists: true, enabled: !!profile.enabled }), { EX: ttlSec() });
+          }
+        } catch {}
+      }
+
       return user;
     } catch (error) {
-      console.error('Error updating user Keycloak info:', error);
+      logger.error('Error updating user Keycloak info', { error: error.message });
       return null;
     }
   }
@@ -182,7 +196,14 @@ async function kcUpdateUserProfile(keycloakId, { firstName, lastName, email, ena
 }
 
 async function kcSetUserEnabled(keycloakId, enabled) {
-  return kcUpdateUserProfile(keycloakId, { enabled });
+  const ok = await kcUpdateUserProfile(keycloakId, { enabled });
+  try {
+    const redis = getRedis();
+    if (redis?.isOpen) {
+      await redis.set(statusKey(keycloakId), JSON.stringify({ exists: true, enabled: !!enabled }), { EX: ttlSec() });
+    }
+  } catch {}
+  return ok;
 }
 
 async function kcResetPassword(keycloakId, newPassword, temporary = false) {
@@ -204,7 +225,6 @@ async function kcResetPassword(keycloakId, newPassword, temporary = false) {
 async function kcAssignRealmRoles(keycloakId, kcRoleNames = []) {
   const token = await getAdminAccessToken();
 
-  // 1) Tüm realm rollerini çek
   const rolesResp = await fetch(`${kcAdminBase()}/roles`, {
     headers: { 'Authorization': `Bearer ${token}` }
   });
@@ -214,18 +234,16 @@ async function kcAssignRealmRoles(keycloakId, kcRoleNames = []) {
     err.statusCode = 502;
     throw err;
   }
-  const allRoles = await rolesResp.json(); // [{id,name}]
+  const allRoles = await rolesResp.json();
 
   const desired = allRoles.filter(r => kcRoleNames.includes(r.name));
 
-  // 2) Kullanıcının mevcut realm rol atamalarını çek
   const currentResp = await fetch(`${kcAdminBase()}/users/${keycloakId}/role-mappings/realm`, {
     headers: { 'Authorization': `Bearer ${token}` }
   });
   if (!currentResp.ok) {
     const text = await currentResp.text().catch(() => '');
     const err = new Error(`Keycloak user role-mappings fetch failed (userId=${keycloakId}): ${currentResp.status} ${text}`);
-    // 404'ü doğrudan öne çıkar, controller bunu status olarak dönecek
     err.statusCode = currentResp.status || 502;
     throw err;
   }
@@ -237,7 +255,6 @@ async function kcAssignRealmRoles(keycloakId, kcRoleNames = []) {
   const toAdd = desired.filter(r => !currentNames.has(r.name));
   const toRemove = current.filter(r => !desiredNames.has(r.name));
 
-  // 3) Ekle
   if (toAdd.length) {
     const respAdd = await fetch(`${kcAdminBase()}/users/${keycloakId}/role-mappings/realm`, {
       method: 'POST',
@@ -251,7 +268,6 @@ async function kcAssignRealmRoles(keycloakId, kcRoleNames = []) {
       throw err;
     }
   }
-  // 4) Kaldır
   if (toRemove.length) {
     const respDel = await fetch(`${kcAdminBase()}/users/${keycloakId}/role-mappings/realm`, {
       method: 'DELETE',
@@ -275,13 +291,18 @@ async function kcDeleteUser(keycloakId) {
     method: 'DELETE',
     headers: { 'Authorization': `Bearer ${token}` }
   });
-  // 204 = deleted, 404 = zaten yok → idempotent kabul et
   if (resp.status !== 204 && resp.status !== 404) {
     const text = await resp.text().catch(() => '');
     const err = new Error(`Keycloak delete user failed: ${resp.status} ${text}`);
     err.statusCode = 502;
     throw err;
   }
+  try {
+    const redis = getRedis();
+    if (redis?.isOpen) {
+      await redis.set(statusKey(keycloakId), JSON.stringify({ exists: false, enabled: null }), { EX: ttlSec() });
+    }
+  } catch {}
   return true;
 }
 
@@ -293,8 +314,7 @@ async function kcGetUserSessions(keycloakId) {
   
   if (!resp.ok) {
     const text = await resp.text().catch(() => '');
-    console.error(`kcGetUserSessions: Failed with status ${resp.status}: ${text}`); // Bu error log'u koru
-    
+    logger.error('kcGetUserSessions failed', { status: resp.status, text });
     const err = new Error(`Keycloak get user sessions failed: ${resp.status} ${text}`);
     err.statusCode = resp.status === 404 ? 404 : 502;
     throw err;
@@ -334,7 +354,7 @@ async function kcRevokeAllUserSessions(keycloakId) {
   return true;
 }
 
-async function kcGetUser(keycloakId) { // NEW
+async function kcGetUser(keycloakId) {
   const token = await getAdminAccessToken();
   const resp = await fetch(`${kcAdminBase()}/users/${keycloakId}`, {
     headers: { 'Authorization': `Bearer ${token}` }
@@ -345,10 +365,17 @@ async function kcGetUser(keycloakId) { // NEW
     err.statusCode = resp.status === 404 ? 404 : 502;
     throw err;
   }
-  return await resp.json();
+  const data = await resp.json();
+  try {
+    const redis = getRedis();
+    if (redis?.isOpen) {
+      await redis.set(statusKey(keycloakId), JSON.stringify({ exists: true, enabled: !!data?.enabled }), { EX: ttlSec() });
+    }
+  } catch {}
+  return data;
 }
 
-async function kcGetUserRealmRoles(keycloakId) { // NEW
+async function kcGetUserRealmRoles(keycloakId) {
   const token = await getAdminAccessToken();
   const resp = await fetch(`${kcAdminBase()}/users/${keycloakId}/role-mappings/realm`, {
     headers: { 'Authorization': `Bearer ${token}` }
@@ -359,17 +386,28 @@ async function kcGetUserRealmRoles(keycloakId) { // NEW
     err.statusCode = resp.status === 404 ? 404 : 502;
     throw err;
   }
-  const roles = await resp.json(); // [{name, id, ...}]
-  const names = roles.map(r => r.name);
-  // Filter built-in roles using realm name
-  const realm = config.auth.keycloak.realm;
-  const filtered = filterKeycloakRoles(names, realm);
-  return filtered;
+  return await resp.json();
+}
+
+async function kcListUsers({ first = 0, max = 50, search = '' } = {}) {
+  const token = await getAdminAccessToken();
+  const qs = new URLSearchParams({ first: String(first), max: String(max) });
+  if (search) qs.set('search', search);
+  const resp = await fetch(`${kcAdminBase()}/users?${qs.toString()}`, {
+    headers: { 'Authorization': `Bearer ${token}` }
+  });
+  if (!resp.ok) {
+    const text = await resp.text().catch(() => '');
+    const err = new Error(`Keycloak list users failed: ${resp.status} ${text}`);
+    err.statusCode = 502;
+    throw err;
+  }
+  return await resp.json();
 }
 
 module.exports = {
-  mapKeycloakRolesToPermissions: KeycloakRoleService.mapKeycloakRolesToPermissions,
-  updateUserKeycloakInfo: KeycloakRoleService.updateUserKeycloakInfo,
+  mapKeycloakRolesToPermissions: KeycloakService.mapKeycloakRolesToPermissions,
+  updateUserKeycloakInfo: KeycloakService.updateUserKeycloakInfo,
   getAdminAccessToken,
   kcUpdateUserProfile,
   kcSetUserEnabled,
@@ -379,6 +417,7 @@ module.exports = {
   kcGetUserSessions,
   kcRevokeUserSession,
   kcRevokeAllUserSessions,
-  kcGetUser,                 // NEW export
-  kcGetUserRealmRoles        // NEW export
+  kcGetUser,
+  kcGetUserRealmRoles,
+  kcListUsers
 };

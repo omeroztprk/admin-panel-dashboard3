@@ -16,7 +16,6 @@ export class PermissionDetailComponent implements OnInit {
   permissionId = '';
   showDropdown = false;
 
-  // Permissions
   canUpdate = false;
   canDelete = false;
   canManage = false;

@@ -31,9 +31,8 @@ export interface PermissionFilters {
   sort?: string;
 }
 
-// Create/Update için minimal interface
 export interface CreatePermissionRequest {
-  name?: string; // Otomatik generate edilebilir
+  name?: string;
   displayName: string;
   resource: string;
   action: string;
@@ -52,7 +51,6 @@ export interface UpdatePermissionRequest {
   isActive?: boolean;
 }
 
-// Meta data interfaces
 export interface PermissionResourcesResponse {
   resources: string[];
 }

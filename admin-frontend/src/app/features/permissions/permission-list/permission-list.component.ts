@@ -16,31 +16,26 @@ export class PermissionListComponent implements OnInit {
   categories: string[] = [];
   loading = false;
   error = '';
-  
-  // Math helper
+
   Math = Math;
-  
-  // Pagination
+
   currentPage = 1;
   totalPages = 0;
   totalItems = 0;
   itemsPerPage = 25;
-  
-  // Filters
+
   filters: PermissionFilters = {
     page: 1,
     limit: 25,
     sort: 'resource'
   };
-  
-  // Search and filter values
+
   searchTerm = '';
   selectedResource = '';
   selectedAction = '';
   selectedCategory = '';
   selectedStatus = '';
 
-  // Permissions
   canCreate = false;
   canUpdate = false;
   canDelete = false;
@@ -50,7 +45,7 @@ export class PermissionListComponent implements OnInit {
     private permissionService: PermissionService,
     private authService: AuthService,
     private router: Router
-  ) {}
+  ) { }
 
   ngOnInit() {
     this.checkPermissions();
@@ -66,7 +61,6 @@ export class PermissionListComponent implements OnInit {
   }
 
   private loadMetadata() {
-    // Resources
     this.permissionService.getAvailableResources().subscribe({
       next: (response) => {
         this.resources = response.data?.resources || [];
@@ -76,7 +70,6 @@ export class PermissionListComponent implements OnInit {
       }
     });
 
-    // Actions
     this.permissionService.getAvailableActions().subscribe({
       next: (response) => {
         this.actions = response.data?.actions || [];
@@ -86,7 +79,6 @@ export class PermissionListComponent implements OnInit {
       }
     });
 
-    // Categories
     this.permissionService.getPermissionCategories().subscribe({
       next: (response) => {
         this.categories = response.data?.categories || [];
@@ -100,7 +92,7 @@ export class PermissionListComponent implements OnInit {
   loadPermissions() {
     this.loading = true;
     this.error = '';
-    
+
     this.permissionService.getPermissions(this.filters).subscribe({
       next: (response) => {
         this.permissions = response.data?.permissions || [];
@@ -113,8 +105,7 @@ export class PermissionListComponent implements OnInit {
       error: (error) => {
         this.error = error?.error?.message || 'İzinler yüklenirken hata oluştu';
         this.loading = false;
-        
-        // 401 hatası alıyorsak ve SSO/HYBRID tokensız modda isek login'e yönlendir
+
         if (error.status === 401 && !this.authService.isDefaultSessionActive) {
           this.authService.hardLogout();
           this.router.navigate(['/login']);
@@ -133,19 +124,19 @@ export class PermissionListComponent implements OnInit {
     if (this.searchTerm?.trim()) {
       filters.search = this.searchTerm.trim();
     }
-    
+
     if (this.selectedResource) {
       filters.resource = this.selectedResource;
     }
-    
+
     if (this.selectedAction) {
       filters.action = this.selectedAction;
     }
-    
+
     if (this.selectedCategory) {
       filters.category = this.selectedCategory;
     }
-    
+
     if (this.selectedStatus !== '') {
       filters.isActive = this.selectedStatus === 'true';
     }
@@ -167,14 +158,13 @@ export class PermissionListComponent implements OnInit {
   }
 
   onSort(sort: string) {
-    // Mevcut sıralama ile aynı ise ters çevir
     let newSort = sort;
     if (this.filters.sort === sort) {
       newSort = `-${sort}`;
     } else if (this.filters.sort === `-${sort}`) {
       newSort = sort;
     }
-    
+
     this.filters = { ...this.filters, sort: newSort, page: 1 };
     this.currentPage = 1;
     this.loadPermissions();
@@ -196,7 +186,7 @@ export class PermissionListComponent implements OnInit {
 
   togglePermissionStatus(permission: Permission) {
     if (!this.canManage || permission.isSystem) return;
-    
+
     this.permissionService.togglePermissionStatus(permission._id, !permission.isActive).subscribe({
       next: () => {
         this.loadPermissions();
@@ -209,7 +199,7 @@ export class PermissionListComponent implements OnInit {
 
   deletePermission(permission: Permission) {
     if (!this.canDelete || permission.isSystem) return;
-    
+
     if (confirm(`${permission.displayName || permission.name} iznini silmek istediğinizden emin misiniz?`)) {
       this.permissionService.deletePermission(permission._id).subscribe({
         next: () => {
@@ -269,18 +259,18 @@ export class PermissionListComponent implements OnInit {
   getPageNumbers(): number[] {
     const pages: number[] = [];
     const maxVisible = 5;
-    
+
     let start = Math.max(1, this.currentPage - Math.floor(maxVisible / 2));
     let end = Math.min(this.totalPages, start + maxVisible - 1);
-    
+
     if (end - start + 1 < maxVisible) {
       start = Math.max(1, end - maxVisible + 1);
     }
-    
+
     for (let i = start; i <= end; i++) {
       pages.push(i);
     }
-    
+
     return pages;
   }
 }

@@ -26,12 +26,10 @@ export class PermissionGuard implements CanActivate {
           return of(false);
         }
 
-        // Önce mevcut izinlerle dene
         if (this.authService.hasPermission(requiredPermission)) {
           return of(true);
         }
 
-        // İzinler yüklenmemiş olabilir: me() çağır ve tekrar değerlendir
         return this.authService.me().pipe(
           map(() => {
             const hasPermission = this.authService.hasPermission(requiredPermission);

@@ -1,12 +1,12 @@
 import { Injectable, OnDestroy } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, Observable, of, throwError, Subject } from 'rxjs';
-import { catchError, map, tap, switchMap, shareReplay, finalize, takeUntil } from 'rxjs/operators';
+import { BehaviorSubject, Observable, of, throwError, Subject, fromEvent, merge, interval } from 'rxjs';
+import { catchError, map, tap, switchMap, shareReplay, finalize, takeUntil, filter, auditTime, exhaustMap } from 'rxjs/operators';
 import { environment } from '../../../environments/environment.development';
-import { 
-  AuthUser, 
-  LoginResponse, 
-  TokenPair, 
+import {
+  AuthUser,
+  LoginResponse,
+  TokenPair,
   LoginDecision,
   UserPermission,
   User,
@@ -29,10 +29,43 @@ export class AuthService implements OnDestroy {
   private meInFlight$?: Observable<AuthUser | null>;
   private destroyed$ = new Subject<void>();
 
-  constructor(private http: HttpClient) { 
+  constructor(private http: HttpClient) {
     const user = this.readUser();
     if (user?.permissions) {
       this._userPermissions = this.extractPermissionNames(user.permissions);
+    }
+    this.initAutoUserSync();
+  }
+
+  private initAutoUserSync() {
+    if (typeof window === 'undefined' || typeof document === 'undefined') return;
+
+    const syncMs = (environment as any).userAutoSyncMs || 15000;
+
+    const visibility$ = fromEvent(document, 'visibilitychange').pipe(
+      filter(() => document.visibilityState === 'visible')
+    );
+    const focus$ = fromEvent(window, 'focus');
+    const timer$ = interval(syncMs);
+
+    merge(visibility$, focus$, timer$)
+      .pipe(
+        takeUntil(this.destroyed$),
+        filter(() => document.visibilityState === 'visible'),
+        filter(() => this.isAuthenticated),
+        auditTime(250),
+        exhaustMap(() => this.me().pipe(
+          catchError(() => of(null))
+        ))
+      )
+      .subscribe();
+
+    if (this.user) {
+      setTimeout(() => {
+        if (this.isAuthenticated && document.visibilityState === 'visible') {
+          this.me(true).subscribe({ next: () => { }, error: () => { } });
+        }
+      }, 0);
     }
   }
 
@@ -40,7 +73,7 @@ export class AuthService implements OnDestroy {
     const raw = localStorage.getItem('ap.user');
     try { return raw ? JSON.parse(raw) as AuthUser : null; } catch { return null; }
   }
-  
+
   private writeUser(u: AuthUser | null) {
     if (!u) {
       localStorage.removeItem('ap.user');
@@ -54,7 +87,7 @@ export class AuthService implements OnDestroy {
 
   private extractPermissionNames(permissions: UserPermission[]): string[] {
     if (!permissions || permissions.length === 0) return [];
-    
+
     return permissions.map(p => {
       if (p && typeof p === 'object' && p.permission) {
         const perm = p.permission;
@@ -69,12 +102,12 @@ export class AuthService implements OnDestroy {
 
   get accessToken(): string | null { return localStorage.getItem('ap.at'); }
   get refreshToken(): string | null { return localStorage.getItem('ap.rt'); }
-  
+
   private setTokens(tp: TokenPair) {
     if (tp.accessToken) localStorage.setItem('ap.at', tp.accessToken);
     if (tp.refreshToken) localStorage.setItem('ap.rt', tp.refreshToken);
   }
-  
+
   private clearTokens() {
     localStorage.removeItem('ap.at');
     localStorage.removeItem('ap.rt');
@@ -164,9 +197,8 @@ export class AuthService implements OnDestroy {
         );
       }),
       catchError(error => {
-        // İyileştirme: Daha spesifik error handling
         let errorMessage = 'Giriş başarısız';
-        
+
         if (error.status === 423) {
           const retryAfter = error?.headers?.get?.('Retry-After');
           if (retryAfter) {
@@ -186,7 +218,7 @@ export class AuthService implements OnDestroy {
         } else {
           errorMessage = error?.error?.message || error?.error?.data?.message || 'Giriş başarısız';
         }
-        
+
         return throwError(() => ({ ...error, error: { ...error.error, message: errorMessage } }));
       })
     );
@@ -206,16 +238,12 @@ export class AuthService implements OnDestroy {
     ).pipe(
       switchMap(res => {
         const d = res.data;
-        // Tokenları kaydet
         this.setTokens({ accessToken: d.accessToken, refreshToken: d.refreshToken });
 
-        // TFA akışında eksik izinlerle state yazmayalım; direkt normalize kullanıcıyı çekelim
         this.lastLoginEmail = null;
         sessionStorage.removeItem('ap.lastEmail');
 
-        // Flatten edilmiş permissions için fresh me()
         return this.me(true).pipe(
-          // Çağıran tarafın beklediği response yapısını koru
           map(() => res)
         );
       })
@@ -253,7 +281,6 @@ export class AuthService implements OnDestroy {
           user = { ...res, authMethod: 'sso' };
         }
 
-        // SSO: kısa süreli stale override koruması
         if (user && (user as any).authMethod === 'sso') {
           const lockUntil = Number(localStorage.getItem('ap.sso.lockUntil') || 0);
           const now = Date.now();
@@ -262,12 +289,10 @@ export class AuthService implements OnDestroy {
             if (cur) {
               user = {
                 ...user,
-                // Profil alanlarını local state'teki en güncel değerlerle koru
                 firstName: cur.firstName ?? (user as any).firstName,
                 lastName: cur.lastName ?? (user as any).lastName,
                 email: cur.email ?? (user as any).email,
                 profile: { ...(user as any).profile, ...(cur as any).profile },
-                // Rol ve izinleri de koru (rol değişimi Users ekranında zaten state'e yazılıyor)
                 roles: cur.roles ?? (user as any).roles,
                 permissions: cur.permissions ?? (user as any).permissions
               } as any;
@@ -297,7 +322,7 @@ export class AuthService implements OnDestroy {
     this.destroyed$.next();
     this.destroyed$.complete();
   }
-  
+
   logout() {
     const mode = environment.authMode;
 
@@ -305,7 +330,7 @@ export class AuthService implements OnDestroy {
       this.hardLogout();
       try {
         window.location.replace(environment.sso.logoutUrl);
-      } catch {}
+      } catch { }
       setTimeout(() => {
         if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
           window.location.replace('/login');
@@ -318,7 +343,7 @@ export class AuthService implements OnDestroy {
       this.hardLogout();
       try {
         window.location.replace(environment.sso.logoutUrl);
-      } catch {}
+      } catch { }
       setTimeout(() => {
         if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
           window.location.replace('/login');
@@ -346,24 +371,23 @@ export class AuthService implements OnDestroy {
 
   getSessions(): Observable<ApiResponse<{ sessions: any[] }>> {
     const isSso = this.isSsoSessionActive;
-    const mode = environment.authMode;    
+    const mode = environment.authMode;
     const headers: any = {};
-    
-    // Refresh token'ı header'a ekle (DEFAULT/HYBRID modunda)
+
     if (!isSso && mode !== 'SSO') {
       const rt = this.refreshToken;
       if (rt) headers['X-Refresh-Token'] = rt;
     }
-    
+
     return this.http.get<ApiResponse<{ sessions: any[] }>>(
-      `${this.api}/auth/sessions`, 
-      { 
-        withCredentials: true, // Tüm modlarda cookie gönder (hybrid için önemli)
-        headers 
+      `${this.api}/auth/sessions`,
+      {
+        withCredentials: true,
+        headers
       }
     ).pipe(
       catchError(err => {
-        console.error('getSessions error:', err); // Bu error log'u koru
+        console.error('getSessions error:', err);
         return throwError(() => err);
       })
     );
@@ -371,16 +395,16 @@ export class AuthService implements OnDestroy {
 
   revokeSession(id: string): Observable<ApiResponse<{ revoked: boolean }>> {
     return this.http.delete<ApiResponse<{ revoked: boolean }>>(
-      `${this.api}/auth/sessions/${id}`, 
-      { withCredentials: true } // Tüm modlarda cookie gönder
+      `${this.api}/auth/sessions/${id}`,
+      { withCredentials: true }
     );
   }
 
   logoutAll(): Observable<ApiResponse<{ success: boolean }>> {
     const withCreds = this.isSsoSessionActive;
     return this.http.post<ApiResponse<{ success: boolean }>>(
-      `${this.api}/auth/logout-all`, 
-      {}, 
+      `${this.api}/auth/logout-all`,
+      {},
       { withCredentials: withCreds }
     ).pipe(tap(() => this.hardLogout()));
   }
@@ -390,12 +414,12 @@ export class AuthService implements OnDestroy {
     this.writeUser(null);
     this.lastLoginEmail = null;
     sessionStorage.removeItem('ap.lastEmail');
-    
+
     this._user$.next(null);
     this._userPermissions = [];
-    
+
     sessionStorage.clear();
-    
+
     Object.keys(localStorage).forEach(key => {
       if (key.startsWith('ap.') || key.startsWith('admin-panel')) {
         localStorage.removeItem(key);
@@ -410,7 +434,6 @@ export class AuthService implements OnDestroy {
     return environment.authMode === 'DEFAULT' || !!this.accessToken;
   }
 
-  // SSO: kendi profilini /users/:id üzerinden günceller (backend Keycloak Admin API'ye proxy'ler)
   updateProfile(payload: Partial<AuthUser>) {
     const isSso = this.isSsoSessionActive;
 
@@ -449,11 +472,9 @@ export class AuthService implements OnDestroy {
             this.writeUser(mergedUser);
           }
         })
-        // ÖNEMLİ: SSO için me(true) çağrısını kaldırdık, stale profile ile overwrite olmasın
       );
     }
 
-    // DEFAULT/HYBRID (JWT) flow
     return this.http.patch(`${this.api}/auth/profile`, payload).pipe(
       switchMap((res: any) => {
         const updated = res?.data?.user || res?.user || payload;
@@ -462,7 +483,6 @@ export class AuthService implements OnDestroy {
           const mergedUser = preserveCriticalFields(currentUser, updated);
           this.writeUser(mergedUser);
         }
-        // DEFAULT'ta tam ve normalize izin/roller için fresh çek
         return this.me(true);
       })
     );
@@ -477,7 +497,6 @@ export class AuthService implements OnDestroy {
     );
   }
 
-  // Helper method: External service'lerden user observable'ını güncelleme
   updateUserInObservable(partial: Partial<AuthUser>) {
     const current: any = this._user$.value;
     if (!current) {
@@ -491,7 +510,6 @@ export class AuthService implements OnDestroy {
       profile: { ...(current.profile || {}), ...(partial as any)?.profile || {} }
     };
 
-    // roles/permissions alanları yok veya boş geldiyse mevcutları koru
     if (!('roles' in (partial as any)) || (Array.isArray((partial as any).roles) && (partial as any).roles.length === 0)) {
       merged.roles = current.roles;
     }
@@ -499,12 +517,10 @@ export class AuthService implements OnDestroy {
       merged.permissions = current.permissions;
     }
 
-    // authMethod/id/sso gibi kritik alanları koru
     merged.authMethod = current.authMethod;
     merged.id = current.id || current._id;
     if (current.sso) merged.sso = current.sso;
 
-    // SSO ve aynı kullanıcı ise: kısa süreli stale override kilidi koy (5 dk)
     const isSame = (current._id && merged._id && current._id === merged._id) || (current.id && merged.id && current.id === merged.id);
     if (this.isSsoSessionActive && isSame) {
       const until = Date.now() + 5 * 60 * 1000;

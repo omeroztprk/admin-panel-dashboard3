@@ -36,10 +36,9 @@ const updateUser = [
   body('firstName').optional().trim().isLength({ min: 2, max: 50 }).withMessage('errors.validation.first_name_length'),
   body('lastName').optional().trim().isLength({ min: 2, max: 50 }).withMessage('errors.validation.last_name_length'),
   body('email').optional().isEmail().normalizeEmail().withMessage('errors.validation.invalid_email'),
-  // ŞİFRE DOĞRULAMASI EKLENDİ - güncelleme sırasında şifre varsa aynı kurallar geçerli
   body('password')
     .optional()
-    .if((value) => value && value.trim()) // Boş değilse kontrol et
+    .if((value) => value && value.trim())
     .isLength({ min: 8 }).withMessage('errors.validation.password_min_length')
     .matches(strongPasswordRegex).withMessage('errors.validation.password_complexity'),
   body('roles').optional().isArray().withMessage('errors.validation.invalid_input'),
